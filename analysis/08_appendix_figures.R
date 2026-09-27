@@ -22,7 +22,7 @@
 source(file.path(.here, "helpers.R"), encoding = "UTF-8"); source(file.path(.here, "maplib.R"), encoding = "UTF-8")
 
 island <- load_island()
-sites  <- load_sites(100)
+sites  <- load_sites(fromJSON(file.path(OUT, "thesis_results.json"))$adopted_radius)
 DOM <- list(Honolulu = domain_bounds(sites, "Honolulu", 600), Ewa = domain_bounds(sites, "Ewa", 600))
 EQB <- equal_bounds(DOM)                                   # the study domains of Figure 1 and Section 1.2
 LC  <- fromJSON(file.path(OUT, "island_landcover.json"))
@@ -75,7 +75,7 @@ figB1_landcover <- function() {
 # ==============================================================================
 # B2  Terrain
 read_dem_txt <- function(path) {
-  # the compact text grids of data/derived: header with the grid geometry, then one line per
+  # the compact text grids of data/external: header with the grid geometry, then one line per
   # row (north to south) with elevation / 5 m, "wN" for N cells without data and a checksum
   L <- readLines(path, encoding = "UTF-8")
   hdr <- paste(L[startsWith(L, "#")], collapse = " ")
@@ -205,7 +205,7 @@ figB3_svf <- function(site_id = "ID26") {
   # Purpose: show how the sky view factor of a site is calculated from the footprints.
   s <- sites[sites$sensor_id == site_id, ]; xy <- st_coordinates(s)
   b <- bounds4(xy[1] - 215, xy[2] - 215, xy[1] + 215, xy[2] + 215)
-  bl <- load_buildings(b) %>% mutate(height_m = pmin(pmax(coalesce(height_m, 3), 0.5), 60))
+  bl <- load_buildings(b) %>% mutate(height_m = pmin(pmax(coalesce(height_m, HEIGHT_FILL_M), HEIGHT_RANGE_M[1]), HEIGHT_RANGE_M[2]))
   rays <- svf_rays(st_geometry(s), bl)
   svf <- mean(cos(rays$beta)^2)
   stopifnot(abs(svf - s$svf_point) < 1e-6)                    # same value as the descriptor used in the models

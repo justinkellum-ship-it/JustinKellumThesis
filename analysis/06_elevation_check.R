@@ -120,7 +120,7 @@ step2to4_models <- function(d, sds, res) {
     rows[[length(rows) + 1]] <- r
     # step 4: the adopted models, without and with elevation
     adopted <- if (scope == "pooled") {
-      list(c("parsimonious (district + impervious + height)", "region + imperv_z + height_z"),
+      list(c(paste0("parsimonious (district + ", paste(SHORT[PARSIMONIOUS], collapse = " + "), ")"), rhs_parsimonious()),
            c("full (district + eight descriptors)", rhs_full("region")))
     } else {
       bs <- res$regional[[scope]]$best_subset$predictors
@@ -154,7 +154,7 @@ step5_interaction <- function(d, sds) {
   f <- UNIT$elev_m[[1]] / sds["elev_m"]
   E$interaction <<- list(lrt_chi2 = l$stat, df = l$df, p = l$p,
                          ewa_slope_per_10m = unname(fe["elev_m_z"] * f),
-                         hnl_slope_per_10m = unname((fe["elev_m_z"] + fe["regionHonolulu:elev_m_z"]) * f))
+                         hnl_slope_per_10m = unname((fe["elev_m_z"] + fe[paste0(REGION_TERM, ":elev_m_z")]) * f))
 }
 
 # ---- step 6: best subsets with elevation in the pool --------------------------------------------------
@@ -195,7 +195,7 @@ step7_loso <- function(d, res) {
     tibble(scope = scope, model = model, rmse = sqrt(mean(err^2)), mae = mean(abs(err)), r = cor(pred, obs),
            r2_cv = 1 - sum(err^2) / sum((obs - mean(obs))^2)) }
   rows <- list()
-  for (s in list(c("pooled", "parsimonious", "region + imperv_z + height_z"), c("pooled", "full", rhs_full("region")))) {
+  for (s in list(c("pooled", "parsimonious", rhs_parsimonious()), c("pooled", "full", rhs_full("region")))) {
     for (add in c("", " + elev_m_z")) {
       pr <- predict_loso(d, paste0(s[3], add), site$sensor_id)
       rows[[length(rows) + 1]] <- cv_row(s[1], paste0(s[2], if (nzchar(add)) " + elevation" else ""), pr, site$dT_site)
@@ -253,7 +253,8 @@ fig_elevation <- function(sites, t) {
 main <- function() {
   x <- load_elev(); d <- x$d; sds <- x$sds; res <- x$res
   E$source <<- list(dem = "USGS 3DEP 1 m lidar DEM, bare earth, via the USGS Elevation Point Query Service (epqs.nationalmap.gov, v1)",
-                    retrieved = "2026-09-19", radius_m = res$adopted_radius, n_sites = n_distinct(d$sensor_id), n_obs = nrow(d),
+                    retrieved = sub(".*retrieved ", "", read_csv(file.path(DER, "site_elevation.csv"), show_col_types = FALSE)$source[1]),
+                    radius_m = res$adopted_radius, n_sites = n_distinct(d$sensor_id), n_obs = nrow(d),
                     z_sd_elev = unname(sds["elev_m"]), z_mean_elev = unname(x$means["elev_m"]))
   message("Step 1: descriptives"); sites <- step1_descr(d)
   message("Steps 2-4: models"); t <- step2to4_models(d, sds, res)

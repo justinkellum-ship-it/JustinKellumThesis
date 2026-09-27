@@ -1,4 +1,4 @@
-Table: Agreement between the R analysis (lme4 / lmerTest) and the independent Python replication (statsmodels MixedLM) on the same inputs: a selection of the 117 paired quantities in `replication_check.csv` (which also holds 25 maximum-difference checks over the 74 sites). Differences larger than 0.01 are optimizer tolerance (ΔAIC, joint χ²) or a documented implementation choice (one unstable leave-one-site-out fold of the ʻEwa full model in statsmodels). {#tbl:replication}
+Table: Agreement between the R analysis (lme4 / lmerTest) and the independent Python replication (statsmodels MixedLM) on the same inputs: a selection of the 117 paired quantities in `replication_check.csv` (which also holds 25 maximum-difference checks: the descriptors over the 74 sites and ΔT over the 400 sensor-nights). Apart from the night-effect degrees of freedom (an implementation choice: lme4 drops the night dummy that is collinear with the district term), the differences larger than 0.01 are optimizer tolerance (ΔAIC, joint χ²); the leave-one-site-out folds of the over-parameterized ʻEwa full model are the quantities most sensitive to the optimizer in statsmodels. {#tbl:replication}
 
 | Quantity | R | Python | Difference |
 |----------------------------------------|------------:|------------:|------------:|
@@ -28,5 +28,5 @@ Table: Agreement between the R analysis (lme4 / lmerTest) and the independent Py
 | LOSO region only: r | -0.467 | -0.467 | -0.000 |
 | LOSO Honolulu full: r | 0.538 | 0.538 | +0.000 |
 | LOSO Honolulu best subset (imperv + coast_km): r | 0.578 | 0.578 | -0.000 |
-| LOSO Ewa full: r | 0.649 | 0.615 | +0.034 |
+| LOSO Ewa full: r | 0.649 | 0.658 | -0.009 |
 | LOSO Ewa best subset (imperv + height + aspect): r | 0.705 | 0.705 | -0.000 |

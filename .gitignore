@@ -4,6 +4,14 @@ data/external/buildings_oahu.gpkg
 data/external/gshhg/
 data/external/gshhg-shp.zip
 
+# the map figures are kept as PNG only (their PDFs run to 5-12 MB each)
+results/figures/T01_study_area.pdf
+results/figures/T07_predictor_maps_Honolulu.pdf
+results/figures/T08_predictor_maps_Ewa.pdf
+results/figures/T15_blups.pdf
+results/figures/T16_dT_maps.pdf
+results/figures/B1_landcover.pdf
+
 # caches and build products
 results/cache/
 replication/results/cache/

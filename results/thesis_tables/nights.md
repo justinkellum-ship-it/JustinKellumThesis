@@ -1,4 +1,4 @@
-Table: Nights on which at least 75% of the available night bins were calm and clear (ERA5 10m wind below 10km h⁻¹ and cloud cover below 25%), with the completeness decision (all 24 bins present; at least 20 loggers reporting). Diurnal dates start at 06:00 HST. {#tbl:nights}
+Table: Nights on which at least 75% of the available night bins were calm and clear (ECMWF 10m wind below 10km h⁻¹ and cloud cover below 25%), with the completeness decision (all 24 bins present; at least 20 loggers reporting). Diurnal dates start at 06:00 HST. {#tbl:nights}
 
 | Study area | Night (18:00–06:00 HST) | Sensors reporting | Night-mean wind (km h⁻¹) | Night-mean cloud (%) | Share of calm & clear bins | Decision |
 |------------|-----------------------|-----------------:|------------------------:|--------------------:|--------------------------:|----------------------------------------|

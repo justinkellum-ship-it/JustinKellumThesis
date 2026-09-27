@@ -10,9 +10,10 @@
 #          canyon aspect ratio H/W from the mean building spacing
 #   3-D ray casting on the same footprints
 #       -> sky view factor at the sensor (1.5 m above ground), 36 azimuths,
-#          200 m horizon search; SVF = mean cos^2(beta) (Dozier & Frew 1990)
+#          200 m horizon search; SVF = mean cos^2(beta) (Johnson & Watson 1984;
+#          the canyon-geometry approach of Oke 1981)
 #   GSHHG full-resolution shoreline (Wessel & Smith 1996)
-#       -> distance from the sensor to the ocean
+#       -> distance from the sensor to the ocean (omitted when COAST_FILE is NULL)
 #
 # Output: data/descriptors/site_predictors_multiscale.csv, one row per site x radius.
 #
@@ -124,15 +125,15 @@ main <- function() {
   near <- unique(unlist(st_intersects(st_buffer(st_geometry(pts), max(RADII, HORIZON_R) + 50), bldg)))
   bldg <- bldg[sort(near), ]
   message(nrow(bldg), " footprints within reach of the sites")
-  coast <- st_transform(st_read(file.path(EXT, COAST_FILE), quiet = TRUE), CRS_M)
-  coast_line <- st_boundary(st_union(coast))
+  coast_line <- if (is.null(COAST_FILE)) NULL else                       # a network far from any coast: no coast descriptor
+    st_boundary(st_union(st_transform(st_read(file.path(EXT, COAST_FILE), quiet = TRUE), CRS_M)))
   masks <- lapply(LANDCOVER, function(l) ccap_mask(l$pattern))            # impervious, tree, water
 
   rows <- list()
   for (i in seq_len(nrow(pts))) {
     p <- pts[i, ]
     svf <- sky_view_factor(st_geometry(p), bldg)
-    coast_d <- as.numeric(st_distance(st_geometry(p), coast_line))
+    coast_d <- if (is.null(coast_line)) NA_real_ else as.numeric(st_distance(st_geometry(p), coast_line))
     for (R in RADII) {
       g <- st_buffer(st_geometry(p), R, nQuadSegs = QUADSEGS)
       imp <- raster_fraction(masks$impervious, g, LANDCOVER$impervious$value)$frac[[1]]

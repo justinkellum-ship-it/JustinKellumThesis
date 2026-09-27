@@ -5,8 +5,9 @@
 # nights) against two- and three-dimensional urban-form predictors at 50, 100 and
 # 200 m.
 #
-# Unit of analysis: the sensor-night (400 rows: 36 Honolulu sites x 7 nights and
-# 38 ʻEwa sites x 4 nights).  Every model has a random intercept per site,
+# Unit of analysis: the sensor-night (400 rows: 248 in Honolulu, 36 sites on 7
+# nights with 34-36 loggers reporting, and 152 in ʻEwa, 38 sites on 4 nights).
+# Every model has a random intercept per site,
 # (1 | sensor_id).  Fixed effects are tested with likelihood-ratio tests on ML
 # fits; estimates, standard errors and variance components are reported from
 # REML fits (Zuur et al. 2009); p-values of individual coefficients use
@@ -28,7 +29,8 @@
 #  12  BLUPs, leave-one-site-out cross-validation, calm-core refit
 #  13  absolute temperature comparison on the two shared nights
 #
-# Outputs: results/thesis_results.json and results/tables/*.csv
+# Outputs: results/thesis_results.json, results/tables/*.csv and results/sessionInfo.txt
+#          (the R and package versions of the run)
 #
 # Packages: lme4 (lmer: the mixed models), lmerTest (Satterthwaite df and p-values
 #           for the coefficients), performance (Nakagawa R2 and ICC), car (VIF),
@@ -37,9 +39,7 @@
 .here <- if (nzchar(Sys.getenv("THESIS_ROOT"))) file.path(Sys.getenv("THESIS_ROOT"), "analysis") else {
   .f <- sub("^--file=", "", grep("^--file=", commandArgs(FALSE), value = TRUE)); if (length(.f)) dirname(.f[1]) else "." }
 source(file.path(.here, "helpers.R"), encoding = "UTF-8")
-# the district term of the pooled models: the first district against the second (reference level)
-stopifnot(length(REGIONS) == 2)     # the district comparisons below are written for two districts
-REGION_TERM <- paste0("region", REGIONS[1])
+stopifnot(length(REGIONS) == 2)     # the district comparisons below are written for two districts (REGION_TERM: helpers.R)
 source(file.path(.here, "00_prepare_inputs.R"), encoding = "UTF-8")          # load_binned(), night_inventory(), sensor_nights()
 suppressPackageStartupMessages({ library(lme4); library(lmerTest); library(performance); library(car) })
 
@@ -104,7 +104,6 @@ coef_table <- function(m, sds = NULL) {
   }
   t
 }
-rhs_full <- function(extra = "region") paste(c(extra, paste0(PRED, "_z")), collapse = " + ")
 pred_rows <- function(t) lapply(seq_len(nrow(t)), function(i) as.list(t[i, ]))
 
 load_radius <- function(radius) {
@@ -132,13 +131,15 @@ step1_descriptives <- function(pr) {
     setNames(lapply(PRED, function(p) { x <- t %>% filter(region == r[1], radius_m == as.numeric(r[2]), predictor == p)
                                         list(mean = x$mean, sd = x$sd) }), PRED)
   }), c(outer(REGIONS, RADII, paste, sep = "_")))
-  # district difference at 100 m: Mann-Whitney (Wilcoxon rank-sum, normal approximation)
-  p100 <- pr %>% filter(radius_m == 100)
-  RES$region_difference_100m <<- setNames(lapply(PRED, function(p) {
-    a <- p100[[p]][p100$region == REGIONS[1]]; b <- p100[[p]][p100$region == REGIONS[2]]
+}
+# district difference at the adopted radius: Mann-Whitney (Wilcoxon rank-sum, normal approximation)
+step1b_region_difference <- function(pr, radius) {
+  pa <- pr %>% filter(radius_m == radius)
+  RES$region_difference <<- c(list(radius_m = radius), setNames(lapply(PRED, function(p) {
+    a <- pa[[p]][pa$region == REGIONS[1]]; b <- pa[[p]][pa$region == REGIONS[2]]
     list(honolulu_median = median(a), ewa_median = median(b),
          p = suppressWarnings(wilcox.test(a, b, exact = FALSE, correct = TRUE))$p.value)
-  }), PRED)
+  }), PRED))
 }
 
 # ---- step 2: scale selection -----------------------------------------------------------
@@ -270,8 +271,8 @@ step6_full <- function(d, sds) {
   RES$full_pooled$pred_ewa_profile_in_ewa <<- pred(REGIONS[2], ewa)
   RES$full_pooled$pred_ewa_profile_in_hnl <<- pred(REGIONS[1], ewa)
   RES$full_pooled$morphology_contribution_hnl_minus_ewa <<- unname(sum(fe[paste0(PRED, "_z")] * (hnl - ewa)))
-  # parsimonious pooled model (district + impervious + height) used by the sensitivity analyses
-  mp <- fit_lmm(d, "region + imperv_z + height_z", reml = TRUE); mp_ml <- fit_lmm(d, "region + imperv_z + height_z", reml = FALSE)
+  # parsimonious pooled model (district + PARSIMONIOUS, helpers.R) used by the sensitivity analyses
+  mp <- fit_lmm(d, rhs_parsimonious(), reml = TRUE); mp_ml <- fit_lmm(d, rhs_parsimonious(), reml = FALSE)
   tp <- coef_table(mp, sds); write_table(tp, "parsimonious_model_pooled")
   RES$parsimonious_pooled <<- c(list(coefs = pred_rows(tp)), r2_nakagawa(mp),
                                 list(aic = aic_ml(mp_ml), lrt_full_vs_parsimonious = unname(unlist(lrt(m_ml, mp_ml)))))
@@ -352,8 +353,8 @@ step9_night <- function(d, m_ml_base) {
 
 # ---- step 10: threshold sensitivity ------------------------------------------------------------------
 step10_thresholds <- function(sds) {
-  b <- load_binned(); hh <- b$hh; era <- b$era
-  base_inv <- night_inventory(hh, era)
+  b <- load_binned(); hh <- b$hh; wx <- b$wx
+  base_inv <- night_inventory(hh, wx)
   pr <- read_csv(file.path(DER, "site_predictors_multiscale.csv"), show_col_types = FALSE)
   p100 <- pr %>% filter(radius_m == RES$adopted_radius) %>% select(-radius_m, -region)
   base_sn <- sensor_nights(hh, base_inv)
@@ -364,36 +365,44 @@ step10_thresholds <- function(sds) {
     d
   }
   one <- function(d, inv, w, cc, f) {
-    m <- fit_lmm(d, "region + imperv_z + height_z", reml = TRUE); mf <- fit_lmm(d, rhs_full("region"), reml = TRUE)
+    m <- fit_lmm(d, rhs_parsimonious(), reml = TRUE); mf <- fit_lmm(d, rhs_full("region"), reml = TRUE)
     site <- d %>% group_by(sensor_id) %>% summarise(dT = mean(dT_night)) %>% inner_join(base_site, by = "sensor_id", suffix = c("", "_base"))
     nn <- inv %>% filter(selected) %>% count(region)
     fe <- fixef(m); se <- sqrt(diag(vcov(m)))
-    tibble(wind_max = w, cloud_max = cc, min_frac = f,
-           nights_honolulu = sum(nn$n[nn$region == REGIONS[1]]), nights_ewa = sum(nn$n[nn$region == REGIONS[2]]), sensor_nights = nrow(d),
-           beta_imperv_z = unname(fe["imperv_z"]), se_imperv = unname(se[names(fe) == "imperv_z"]),
-           beta_height_z = unname(fe["height_z"]), se_height = unname(se[names(fe) == "height_z"]),
-           r2m_parsimonious = r2_nakagawa(m)$r2m, r2m_full = r2_nakagawa(mf)$r2m,
-           site_sd = sd(site$dT), corr_with_baseline = cor(site$dT, site$dT_base),
-           mean_wind = mean(d$wind_night), mean_cloud = mean(d$cloud_night))
+    r <- tibble(wind_max = w, cloud_max = cc, min_frac = f)
+    for (reg in REGIONS) r[[paste0("nights_", tolower(reg))]] <- sum(nn$n[nn$region == reg])
+    r$sensor_nights <- nrow(d)
+    for (p in PARSIMONIOUS) {                       # the slopes of the parsimonious model under this rule
+      r[[paste0("beta_", p, "_z")]] <- unname(fe[paste0(p, "_z")]); r[[paste0("se_", p)]] <- unname(se[names(fe) == paste0(p, "_z")])
+    }
+    r %>% mutate(r2m_parsimonious = r2_nakagawa(m)$r2m, r2m_full = r2_nakagawa(mf)$r2m,
+                 site_sd = sd(site$dT), corr_with_baseline = cor(site$dT, site$dT_base),
+                 mean_wind = mean(d$wind_night), mean_cloud = mean(d$cloud_night))
   }
-  grid <- expand.grid(w = c(8, 10, 12, 15, 20), cc = c(15, 25, 35, 50), f = 0.75)
+  # the alternative rules tried: wind and cloud thresholds around the adopted ones at the adopted
+  # completeness share, then other shares at the adopted thresholds, then no weather filter at all
+  grid <- expand.grid(w = c(8, 10, 12, 15, 20), cc = c(15, 25, 35, 50), f = MIN_FRAC_STEPS)
   grid <- rbind(grid, data.frame(w = c(10, 10, 10, 999), cc = c(25, 25, 25, 999), f = c(0.6, 0.9, 1.0, 0)))   # last = no weather filter
   rows <- list()
   for (i in seq_len(nrow(grid))) {
     w <- grid$w[i]; cc <- grid$cc[i]; f <- grid$f[i]
-    inv <- night_inventory(hh, era, wind_max = w, cloud_max = cc, min_frac = f)
-    if (w == 999) inv <- inv %>% mutate(meets_weather = coalesce(n_era5_bins == NIGHT_BINS, FALSE), selected = meets_weather & meets_network)
+    inv <- night_inventory(hh, wx, wind_max = w, cloud_max = cc, min_frac = f)
+    if (w == 999) inv <- inv %>% mutate(meets_weather = coalesce(n_weather_bins == NIGHT_BINS, FALSE), selected = meets_weather & meets_network)
     sn <- sensor_nights(hh, inv)
-    if (!nrow(sn) || n_distinct(sn$region) < 2) next
+    if (!nrow(sn) || n_distinct(sn$region) < 2) {          # a rule that selects no night in one district cannot be fitted
+      message(sprintf("   rule wind < %s, cloud < %s, share %s: no night selected in %s; skipped", w, cc, f,
+                      paste(setdiff(REGIONS, unique(sn$region)), collapse = ", ")))
+      next
+    }
     rows[[length(rows) + 1]] <- one(prep_d(sn), inv, w, cc, f)
   }
   # complement: the nights that fail the weather rule (windy and/or cloudy), >= 20 loggers
-  inv <- base_inv %>% mutate(selected = !meets_weather & meets_network & coalesce(n_era5_bins == NIGHT_BINS, FALSE))
+  inv <- base_inv %>% mutate(selected = !meets_weather & meets_network & coalesce(n_weather_bins == NIGHT_BINS, FALSE))
   rows[[length(rows) + 1]] <- one(prep_d(sensor_nights(hh, inv)), inv, -1, -1, -1)
   t <- bind_rows(rows); write_table(t, "threshold_sensitivity")
   RES$threshold_sensitivity <<- pred_rows(t)
-  # night-level relation between the spread of dT across the network and the ERA5 weather
-  inv_all <- base_inv %>% filter(coalesce(n_era5_bins == NIGHT_BINS, FALSE), meets_network) %>% mutate(selected = TRUE)
+  # night-level relation between the spread of dT across the network and the weather
+  inv_all <- base_inv %>% filter(coalesce(n_weather_bins == NIGHT_BINS, FALSE), meets_network) %>% mutate(selected = TRUE)
   sn_all <- sensor_nights(hh, inv_all)
   spread <- sn_all %>% group_by(region, night_date) %>%
     summarise(sd_dT = sd(dT_night), wind = mean(wind_night), cloud = mean(cloud_night), n = n(), .groups = "drop") %>%
@@ -407,12 +416,12 @@ step10_thresholds <- function(sds) {
          n_nights = nrow(g), sd_selected = mean(g$sd_dT[g$selected]), sd_other = mean(g$sd_dT[!g$selected]))
   }), REGIONS)
   RES$night_inventory <<- setNames(lapply(REGIONS, function(reg) {
-    g <- base_inv %>% filter(region == reg); comp <- g %>% filter(coalesce(n_era5_bins == NIGHT_BINS, FALSE))
-    list(n_complete = sum(coalesce(g$n_era5_bins == NIGHT_BINS, FALSE) & g$meets_network), n_selected = sum(g$selected),
+    g <- base_inv %>% filter(region == reg); comp <- g %>% filter(coalesce(n_weather_bins == NIGHT_BINS, FALSE))
+    list(n_complete = sum(coalesce(g$n_weather_bins == NIGHT_BINS, FALSE) & g$meets_network), n_selected = sum(g$selected),
          n_meets_weather = sum(g$meets_weather),
          excluded_network = I(g$night_date[g$meets_weather & !g$meets_network]),
-         excluded_partial = I(g$night_date[coalesce(g$n_era5_bins < NIGHT_BINS, FALSE) & coalesce(g$frac_calm_clear >= MIN_FRAC_STEPS, FALSE)]),
-         frac_calm_only = mean(comp$frac_calm >= 0.75), frac_clear_only = mean(comp$frac_clear >= 0.75))
+         excluded_partial = I(g$night_date[coalesce(g$n_weather_bins < NIGHT_BINS, FALSE) & coalesce(g$frac_calm_clear >= MIN_FRAC_STEPS, FALSE)]),
+         frac_calm_only = mean(comp$frac_calm >= MIN_FRAC_STEPS), frac_clear_only = mean(comp$frac_clear >= MIN_FRAC_STEPS))
   }), REGIONS)
 }
 
@@ -422,7 +431,7 @@ step11_comparison <- function(d, m_int_ml) {
   rows <- list(tibble(model = "OLS: region + 8 predictors (no random effect)", k = length(coef(ols)) + 1, aic = AIC(ols), llf = as.numeric(logLik(ols))))
   specs <- list(c("Null: random intercept only", "1"), c("Random intercept + region", "region"),
                 c("Random intercept + 8 predictors", rhs_full(NULL)),
-                c("Random intercept + region + impervious + height", "region + imperv_z + height_z"),
+                c(paste(c("Random intercept + region", SHORT[PARSIMONIOUS]), collapse = " + "), rhs_parsimonious()),
                 c("Random intercept + region + 8 predictors", rhs_full("region")))
   for (s in specs) { m <- fit_lmm(d, s[2], reml = FALSE); rows[[length(rows) + 1]] <- tibble(model = s[1], k = n_params(m), aic = aic_ml(m), llf = llf(m)) }
   rows[[length(rows) + 1]] <- tibble(model = "Random intercept + region x 8 predictors (interactions)", k = n_params(m_int_ml), aic = aic_ml(m_int_ml), llf = llf(m_int_ml))
@@ -465,7 +474,7 @@ step12_blups_cv <- function(d, m_full, sds) {
     r
   }
   cv <- list()
-  for (s in list(c(rhs_full("region"), "full"), c("region + imperv_z + height_z", "parsimonious"), c("region", "region only"))) {
+  for (s in list(c(rhs_full("region"), "full"), c(rhs_parsimonious(), "parsimonious"), c("region", "region only"))) {
     site[[paste0("pred_", s[2])]] <- predict_loso(d, s[1], site$sensor_id)
     cv[[length(cv) + 1]] <- cv_row(s[2], site[[paste0("pred_", s[2])]], site$dT_site, site$region)
   }
@@ -491,10 +500,11 @@ step12_blups_cv <- function(d, m_full, sds) {
     cc <- round(cor(w, use = "pairwise.complete.obs"), 3)
     write.csv(cbind(night_id = rownames(cc), as.data.frame(cc)), file.path(TAB, paste0("night_correlation_", reg, ".csv")), row.names = FALSE)
   }
-  # calm-core check: district best-subset models refitted on nights with mean ERA5 wind < 5 km/h
+  # calm-core check: district best-subset models refitted on the nights with mean wind below CALM_CORE_KMH
+  CALM_CORE_KMH <- 5
   RES$calm_core <<- setNames(lapply(REGIONS, function(reg) {
     g <- d %>% filter(region == reg)
-    keep <- g %>% group_by(night_id) %>% summarise(w = mean(wind_night)) %>% filter(w < 5) %>% pull(night_id)
+    keep <- g %>% group_by(night_id) %>% summarise(w = mean(wind_night)) %>% filter(w < CALM_CORE_KMH) %>% pull(night_id)
     gg <- g %>% filter(night_id %in% keep)
     bs <- RES$regional[[reg]]$best_subset$predictors
     m <- fit_lmm(gg, paste(paste0(strsplit(bs, " \\+ ")[[1]], "_z"), collapse = " + "), reml = TRUE)
@@ -513,7 +523,7 @@ step13_shared_nights <- function() {
     sm <- g %>% group_by(sensor_id) %>% summarise(T = mean(temp_c))
     tibble(night_date = nd, region = reg, n_sensors = n_distinct(g$sensor_id), T_median_night = mean(med$m), T_mean_all = mean(g$temp_c),
            T_p10 = unname(quantile(sm$T, 0.1)), T_p90 = unname(quantile(sm$T, 0.9)), T_min_site = min(sm$T), T_max_site = max(sm$T),
-           sd_sites = sd(sm$T), wind = mean(g$era5_wind_speed_kmh), cloud = mean(g$era5_cloud_cover_pct))
+           sd_sites = sd(sm$T), wind = mean(g$wind_kmh), cloud = mean(g$cloud_pct))
   }))))
   write_table(t, "shared_nights")
   RES$shared_nights <<- list(nights = I(shared), rows = pred_rows(t),
@@ -547,6 +557,7 @@ main <- function() {
   RES$scale_rule <<- list(rule = "minimax delta AIC over pooled / Honolulu / Ewa full models",
                           max_delta_aic = setNames(as.list(worst$d), worst$radius_m))
   message("   adopted radius: ", adopted)
+  step1b_region_difference(pr, adopted)
   d <- load_radius(adopted)$d
   z <- zscore_frame(d, PRED); d <- z$df; sds <- z$sds; means <- z$means
   RES$z_sds <<- as.list(sds); RES$z_means <<- as.list(means)

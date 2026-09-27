@@ -1,6 +1,6 @@
 #!/usr/bin/env Rscript
 # 07_sensitivity_checks.R -------------------------------------------------------
-# Two site-level sensitivity checks on the models of 02_models.R, at the adopted
+# Three site-level sensitivity checks on the models of 02_models.R, at the adopted
 # 100 m radius, with the same z-scoring (pooled SDs of the 400 sensor-nights),
 # the same random-intercept structure (1 | sensor_id), likelihood-ratio tests on
 # ML fits and REML estimates with Satterthwaite p-values.
@@ -13,11 +13,12 @@
 #
 #   B  Buildings without a recorded height.  About a quarter of the Oʻahu buildings
 #      have no HEIGHT in the FEMA/ORNL USA Structures inventory; in the footprint file
-#      used here (data/external/buildings_oahu.gpkg) they were given 5 m during preprocessing.
-#      For each site the share of building area within 100 m that carries the fill
-#      value is computed, and the models are refitted (i) with 3 m instead of 5 m for
-#      these buildings (height and canyon aspect ratio recomputed at 100 m) and
-#      (ii) without the sites where such buildings make up more than half of the
+#      used here (data/external/buildings_oahu.gpkg, made by inputs/prepare_buildings.R)
+#      they carry HEIGHT_FILL_M (5 m) and the flag height_recorded = FALSE.  For each
+#      site the share of building area within the adopted radius that belongs to such
+#      buildings is computed, and the models are refitted (i) with ALT_FILL_M (3 m)
+#      instead of 5 m for these buildings (height and canyon aspect ratio recomputed)
+#      and (ii) without the sites where such buildings make up more than half of the
 #      building area.
 #
 #   C  Sensor positions inside building footprints.  Five recorded logger positions
@@ -30,7 +31,8 @@
 #
 # Outputs: results/sensitivity_checks.json,
 #          results/tables/sensitivity_*.csv,
-#          data/descriptors/site_default_height_share.csv, data/descriptors/site_svf_footprint_check.csv
+#          data/descriptors/site_default_height_share.csv, island_default_height_share.csv,
+#          site_height_fill3m_100m.csv, site_svf_footprint_check.csv
 #
 # Packages: as 02_models.R (lme4, lmerTest, performance, car), plus sf for part B.
 # ------------------------------------------------------------------------------
@@ -39,16 +41,23 @@
 source(file.path(.here, "02_models.R"), encoding = "UTF-8")     # fit_lmm(), lrt(), coef_table(), r2_nakagawa(), ...
 
 SC <- list()
-DEFAULT_HEIGHT_M <- 5            # the repeated value in the footprint layer
-DEFAULT_SHARE_MAX <- 0.5         # part B: sites above this share of default-height building area are left out
-# CRS_M comes from helpers.R
+# HEIGHT_FILL_M (the height given to buildings without a recorded one), HEIGHT_RANGE_M,
+# BUILDINGS_FILE and CRS_M come from helpers.R; the check's own parameters:
+ALT_FILL_M <- 3                  # part B: the alternative height tried for those buildings
+DEFAULT_SHARE_MAX <- 0.5         # part B: sites above this share of such building area are left out
 QUADSEGS <- 16                   # 64-vertex circles, as in 01_site_predictors.R
+RADIUS_M <- 100                  # the adopted source-area radius (checked against thesis_results.json below)
+
+# the buildings without a recorded height: the flag written by inputs/prepare_buildings.R,
+# or, in a footprint file without it, the buildings that carry exactly the fill value
+unrecorded <- function(bldg) if ("height_recorded" %in% names(bldg)) !bldg$height_recorded else abs(bldg$height_m - HEIGHT_FILL_M) < 1e-6
 
 load_analysis <- function() {
   d <- read_csv(file.path(TAB, "analysis_dataset.csv"), col_types = cols(night_date = col_character(), .default = col_guess())) %>%
     mutate(region = factor(region, levels = c("Ewa", "Honolulu")))
   stopifnot(nrow(d) == 400)
   res <- read_json(file.path(OUT, "thesis_results.json"))
+  stopifnot(res$adopted_radius == RADIUS_M)      # the checks recompute descriptors at the adopted radius
   list(d = d, sds = unlist(res$z_sds), res = res)
 }
 
@@ -65,7 +74,7 @@ model_set <- function(d, sds, res) {
   m <- fit_lmm(d, rhs_full("region"), reml = TRUE); m_ml <- fit_lmm(d, rhs_full("region"), reml = FALSE)
   ct <- coef_table(m, sds); r2 <- r2_nakagawa(m)
   out$pooled_full <- list(coefs = setNames(lapply(paste0(PRED, "_z"), function(t) nat_row(ct, t)), PRED),
-                          region = nat_row(ct, "regionHonolulu"), r2m = r2$r2m, r2c = r2$r2c,
+                          region = nat_row(ct, REGION_TERM), r2m = r2$r2m, r2c = r2$r2c,
                           sd_site = sqrt(r2$var_site), sd_resid = sqrt(r2$var_resid))
   # joint district x descriptor interaction test
   f_all <- paste0(rhs_full("region"), " + ", paste0("region:", PRED, "_z", collapse = " + "))
@@ -147,17 +156,18 @@ default_height_share <- function() {
   sites <- sn %>% distinct(sensor_id, .keep_all = TRUE) %>% select(sensor_id, region, latitude, longitude)
   pts <- st_transform(st_as_sf(sites, coords = c("longitude", "latitude"), crs = 4326, remove = FALSE), CRS_M)
   bldg <- st_transform(st_read(gpkg, quiet = TRUE), CRS_M)
-  all_default <- abs(bldg$height_m - DEFAULT_HEIGHT_M) < 1e-6
+  if (!"area_m2" %in% names(bldg)) bldg$area_m2 <- as.numeric(st_area(bldg))
+  all_default <- unrecorded(bldg)
   isl <- tibble(n_footprints = nrow(bldg), share_footprints_default = mean(all_default),
                 share_area_default = sum(bldg$area_m2[all_default]) / sum(bldg$area_m2))
   rows <- lapply(seq_len(nrow(pts)), function(i) {
-    g <- st_buffer(st_geometry(pts[i, ]), 100, nQuadSegs = QUADSEGS)
+    g <- st_buffer(st_geometry(pts[i, ]), RADIUS_M, nQuadSegs = QUADSEGS)
     idx <- st_intersects(g, bldg)[[1]]
     if (!length(idx)) return(tibble(sensor_id = pts$sensor_id[i], region = pts$region[i], n_bldg = 0L,
                                     area_bldg_m2 = 0, share_default = NA_real_))
     sub <- bldg[idx, ]
     a <- as.numeric(st_area(suppressWarnings(st_intersection(st_geometry(sub), g))))
-    dflt <- abs(sub$height_m - DEFAULT_HEIGHT_M) < 1e-6
+    dflt <- unrecorded(sub)
     tibble(sensor_id = pts$sensor_id[i], region = pts$region[i], n_bldg = length(idx),
            area_bldg_m2 = sum(a), share_default = sum(a[dflt]) / sum(a))
   })
@@ -167,10 +177,10 @@ default_height_share <- function() {
   out
 }
 
-height_fill_variant <- function(fill_m = 3) {
-  # height and canyon aspect ratio at 100 m with the buildings that have no recorded
-  # height (5 m in the footprint file) set to `fill_m` instead
-  f_out <- file.path(DER, sprintf("site_height_fill%dm_100m.csv", fill_m))
+height_fill_variant <- function(fill_m = ALT_FILL_M) {
+  # height and canyon aspect ratio at the adopted radius with the buildings that have no
+  # recorded height (HEIGHT_FILL_M in the footprint file) set to `fill_m` instead
+  f_out <- file.path(DER, sprintf("site_height_fill%dm_%dm.csv", fill_m, RADIUS_M))
   gpkg <- file.path(EXT, BUILDINGS_FILE)
   if (!file.exists(gpkg)) { stopifnot(file.exists(f_out)); return(read_csv(f_out, show_col_types = FALSE)) }
   suppressPackageStartupMessages(library(sf))
@@ -178,11 +188,12 @@ height_fill_variant <- function(fill_m = 3) {
   sn <- read_csv(file.path(PROC, "sensor_nights.csv"), show_col_types = FALSE)
   sites <- sn %>% distinct(sensor_id, .keep_all = TRUE) %>% select(sensor_id, latitude, longitude)
   pts <- st_transform(st_as_sf(sites, coords = c("longitude", "latitude"), crs = 4326, remove = FALSE), CRS_M)
-  bldg <- st_transform(st_read(gpkg, quiet = TRUE), CRS_M) %>%
-    mutate(height_m = ifelse(abs(height_m - DEFAULT_HEIGHT_M) < 1e-6, fill_m, height_m),
-           height_m = pmin(pmax(coalesce(height_m, 3), 0.5), 60))
+  bldg <- st_transform(st_read(gpkg, quiet = TRUE), CRS_M)
+  bldg <- bldg %>%
+    mutate(height_m = ifelse(unrecorded(bldg), fill_m, coalesce(height_m, fill_m)),
+           height_m = pmin(pmax(height_m, HEIGHT_RANGE_M[1]), HEIGHT_RANGE_M[2]))
   out <- bind_rows(lapply(seq_len(nrow(pts)), function(i) {
-    bm <- sp$building_metrics(st_buffer(st_geometry(pts[i, ]), 100, nQuadSegs = QUADSEGS), bldg)
+    bm <- sp$building_metrics(st_buffer(st_geometry(pts[i, ]), RADIUS_M, nQuadSegs = QUADSEGS), bldg)
     tibble(sensor_id = pts$sensor_id[i], height = bm$zH, aspect = bm$hw_ratio)
   }))
   write_csv(out, f_out)
@@ -194,24 +205,24 @@ check_default_heights <- function(d, sds, res) {
   isl_f <- file.path(DER, "island_default_height_share.csv")
   isl <- if (file.exists(isl_f)) as.list(read_csv(isl_f, show_col_types = FALSE)) else NULL
   heavy <- sh$sensor_id[!is.na(sh$share_default) & sh$share_default > DEFAULT_SHARE_MAX]
-  # building-area-weighted share of default heights within 100 m, pooled over each district's sites
+  # building-area-weighted share of such buildings within the radius, pooled over each district's sites
   by_region <- sh %>% group_by(region) %>%
     summarise(area_weighted_share = sum(area_bldg_m2 * coalesce(share_default, 0)) / sum(area_bldg_m2),
               mean_site_share = mean(share_default, na.rm = TRUE),
               n_sites_over_half = sum(share_default > DEFAULT_SHARE_MAX, na.rm = TRUE), .groups = "drop")
   base <- model_set(d, sds, res)
   sub <- model_set(d %>% filter(!sensor_id %in% heavy), sds, res)
-  # (i) 3 m instead of 5 m: height and aspect ratio recomputed and re-standardized (pooled, 400 rows)
-  v3 <- height_fill_variant(3)
+  # (i) ALT_FILL_M instead of HEIGHT_FILL_M: height and aspect ratio recomputed and re-standardized (pooled, 400 rows)
+  v3 <- height_fill_variant(ALT_FILL_M)
   d3 <- d %>% select(-height, -aspect) %>% left_join(v3, by = "sensor_id")
   z <- zscore_frame(d3, c("height", "aspect")); d3 <- z$df
   sds3 <- sds; sds3["height"] <- z$sds["height"]; sds3["aspect"] <- z$sds["aspect"]
   fill3 <- model_set(d3, sds3, res)
-  SC$default_heights <<- list(default_height_m = DEFAULT_HEIGHT_M, share_threshold = DEFAULT_SHARE_MAX,
+  SC$default_heights <<- list(default_height_m = HEIGHT_FILL_M, alternative_height_m = ALT_FILL_M, share_threshold = DEFAULT_SHARE_MAX,
                               island = isl, by_region = pred_rows(by_region), sites_left_out = heavy,
                               with = base, without = sub, fill_3m = fill3)
   write_table(bind_rows(flat(base, "all 74 sites"), flat(sub, "without default-height sites"),
-                        flat(fill3, "3 m instead of 5 m for buildings without a recorded height")), "sensitivity_default_heights")
+                        flat(fill3, sprintf("%d m instead of %d m for buildings without a recorded height", ALT_FILL_M, HEIGHT_FILL_M))), "sensitivity_default_heights")
 }
 
 
@@ -226,7 +237,8 @@ svf_footprint_table <- function() {
   sn <- read_csv(file.path(PROC, "sensor_nights.csv"), show_col_types = FALSE)
   sites <- sn %>% distinct(sensor_id, .keep_all = TRUE) %>% select(sensor_id, region, latitude, longitude)
   pts <- st_transform(st_as_sf(sites, coords = c("longitude", "latitude"), crs = 4326, remove = FALSE), CRS_M)
-  bldg <- st_transform(st_read(gpkg, quiet = TRUE), CRS_M) %>% mutate(height_m = pmin(pmax(coalesce(height_m, 3), 0.5), 60))
+  bldg <- st_transform(st_read(gpkg, quiet = TRUE), CRS_M) %>%
+    mutate(height_m = pmin(pmax(coalesce(height_m, HEIGHT_FILL_M), HEIGHT_RANGE_M[1]), HEIGHT_RANGE_M[2]))   # as in 01_site_predictors.R
   inside <- st_intersects(pts, bldg)
   rows <- lapply(which(lengths(inside) > 0), function(i) {
     p <- st_geometry(pts[i, ]); poly <- st_geometry(bldg[inside[[i]][1], ])

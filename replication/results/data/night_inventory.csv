@@ -1,4 +1,4 @@
-region,night_date,n_era5_bins,frac_calm_clear,wind_night,cloud_night,frac_calm,frac_clear,n_sensors,n_bins,T_median_night,meets_weather,meets_network,selected,decision
+region,night_date,n_weather_bins,frac_calm_clear,wind_night,cloud_night,frac_calm,frac_clear,n_sensors,n_bins,T_median_night,meets_weather,meets_network,selected,decision
 Ewa,2024-11-14,19,0.0,22.400934947368423,8.263157894736842,0.0,1.0,38,19,24.256077795786062,False,True,False,partial night (deployment/retrieval)
 Ewa,2024-11-15,24,0.0,21.379288250000002,9.291666666666666,0.0,0.9166666666666666,38,24,24.729166666666668,False,True,False,not calm and clear
 Ewa,2024-11-16,24,0.0,21.94470779166667,6.458333333333333,0.0,1.0,38,24,23.9765625,False,True,False,not calm and clear

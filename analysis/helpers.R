@@ -2,10 +2,10 @@
 # Shared paths, constants and small functions for the thesis analysis in R.
 #
 # Every script in this folder starts with `source("helpers.R")` (relative to
-# the R/ folder).  The project root is the folder that contains R/, data/ and
-# outputs/; it is found from the location of this file, or can be forced with
-# the environment variable THESIS_ROOT (used when the scripts are run from the
-# R Markdown walkthrough).
+# the analysis/ folder).  The project root is the folder that contains analysis/,
+# data/ and results/; it is found from the location of this file, or can be forced
+# with the environment variable THESIS_ROOT (used by run_all.R and when the scripts
+# are run from the R Markdown walkthrough).
 #
 # Packages used here:
 #   dplyr, tidyr, tibble, readr, purrr, stringr  (tidyverse data handling)
@@ -13,8 +13,9 @@
 #   jsonlite                                     (results file)
 # ---------------------------------------------------------------------------
 
-# the scripts contain UTF-8 text (ʻokina, degree signs, Greek letters); make sure
-# the session reads and draws them as such even under a plain "C" locale
+# the scripts contain UTF-8 text (the Hawaiian okina, degree signs, Greek letters); make
+# sure the session reads and draws them as such even under a plain "C" locale.  This file
+# itself is plain ASCII so that it can be sourced before the locale is set.
 if (!isTRUE(l10n_info()[["UTF-8"]])) suppressWarnings(invisible(Sys.setlocale("LC_CTYPE", "C.UTF-8")))
 options(encoding = "UTF-8")
 
@@ -33,20 +34,24 @@ suppressPackageStartupMessages({
 .find_root <- function() {
   env <- Sys.getenv("THESIS_ROOT", unset = "")
   if (nzchar(env)) return(normalizePath(env))
-  # script run with Rscript: --file=path/to/R/xx.R
+  is_root <- function(d) dir.exists(file.path(d, "analysis")) && dir.exists(file.path(d, "data"))
+  # script run with Rscript: --file=path/to/analysis/xx.R or analysis/inputs/xx.R; walk up
   f <- sub("^--file=", "", grep("^--file=", commandArgs(trailingOnly = FALSE), value = TRUE))
-  if (length(f) == 1) return(normalizePath(file.path(dirname(f), "..")))
-  # sourced interactively from the R/ folder or from the project root
-  if (file.exists("helpers.R")) return(normalizePath(".."))
-  if (dir.exists("analysis") && dir.exists("data")) return(normalizePath("."))
+  if (length(f) == 1) {
+    d <- normalizePath(dirname(f))
+    for (i in 1:3) { if (is_root(d)) return(d); d <- dirname(d) }
+  }
+  # sourced interactively from the analysis/ folder or from the project root
+  if (file.exists("helpers.R") && is_root("..")) return(normalizePath(".."))
+  if (is_root(".")) return(normalizePath("."))
   stop("Cannot find the project root: set THESIS_ROOT or run from analysis/ or the project folder")
 }
 ROOT <- .find_root()
 DATA <- file.path(ROOT, "data")
 RAW  <- file.path(DATA, "raw")          # the study's own measurements (logger readings, sites)
-EXT  <- file.path(DATA, "external")     # data from other providers (ERA5, shoreline, DEM, C-CAP, FEMA ...)
+EXT  <- file.path(DATA, "external")     # data from other providers (weather series, shoreline, DEM, C-CAP, FEMA ...)
 PROC <- file.path(DATA, "processed")    # built by 00_prepare_inputs.R
-DER  <- file.path(DATA, "descriptors")  # built by 01_site_predictors.R and the checks
+DER  <- file.path(DATA, "descriptors")  # built by 01_site_predictors.R and the checks (site_elevation.csv: inputs/fetch_site_elevation.py)
 OUT  <- file.path(ROOT, "results")
 TAB  <- file.path(OUT, "tables")
 FIG  <- file.path(OUT, "figures")
@@ -56,14 +61,16 @@ for (d in c(PROC, DER, TAB, FIG)) dir.create(d, recursive = TRUE, showWarnings =
 # ---- study configuration ----------------------------------------------------
 # Everything that ties the pipeline to this particular network is set here (see
 # AGENTS.md for how to set it for another one).  The scripts read these values;
-# none of them repeats a number that lives here.
+# none of them repeats a number that lives here.  The alternative values tried by
+# the sensitivity steps (other thresholds, the 3 m building height, the calm-core
+# nights) are the checks' own parameters and stay in those scripts.
 BIN_MINUTES <- 30        # logging interval: every reading is snapped to this grid (15, 30, 60 ...)
 NIGHT_START <- 18        # local hour at which a night begins (HST; local standard time, no DST)
 NIGHT_END   <- 6         # local hour at which it ends; a diurnal date runs 06:00-06:00
 NIGHT_HOURS <- (NIGHT_END - NIGHT_START) %% 24              # 12
 NIGHT_BINS  <- as.integer(NIGHT_HOURS * 60 / BIN_MINUTES)    # 24 bins at 30 min
-WIND_MAX_KMH  <- 10      # ERA5 10 m wind speed threshold for a "calm" bin
-CLOUD_MAX_PCT <- 25      # ERA5 total cloud cover threshold for a "clear" bin
+WIND_MAX_KMH  <- 10      # 10 m wind speed threshold (weather series) for a "calm" bin
+CLOUD_MAX_PCT <- 25      # total cloud cover threshold (weather series) for a "clear" bin
 MIN_FRAC_STEPS <- 0.75   # share of the night bins that must be calm AND clear
 MIN_SENSORS_PER_NIGHT <- 20      # network completeness for a usable reference
 MIN_FRAC_SENSOR_NIGHT <- 0.75    # sensor-night completeness: share of the night bins present ...
@@ -73,7 +80,9 @@ MIN_STEPS_PER_SENSOR_NIGHT <- as.integer(round(MIN_FRAC_SENSOR_NIGHT * NIGHT_BIN
 REGIONS <- if (file.exists(file.path(RAW, "sites.csv"))) {
   unique(readr::read_csv(file.path(RAW, "sites.csv"), show_col_types = FALSE, col_types = readr::cols(.default = "c"))$region)
 } else c("Honolulu", "Ewa")
+REGION_TERM <- paste0("region", REGIONS[1])   # the district coefficient: the first district against the second (the reference level)
 RADII   <- c(50, 100, 200)      # source-area radii (m); 02_models.R adopts one of them by AIC
+PARSIMONIOUS <- c("imperv", "height")   # the reduced pooled model (district + these descriptors) that the sensitivity steps refit
 
 # geospatial inputs (data/external): a projected CRS in metres, the land-cover class
 # rasters (one set of tiles per class, matched by a pattern in the file name, with the
@@ -93,6 +102,11 @@ LABEL   <- c(imperv = "Impervious surface fraction (%)", tree = "Tree canopy fra
              bldg = "Building footprint fraction (%)", water = "Water surface fraction (%)",
              height = "Mean building height (m)", svf_point = "Sky view factor (building, at sensor)",
              aspect = "Canyon aspect ratio (H/W)", coast_km = "Distance to coast (km)")
+SHORT   <- c(imperv = "impervious", tree = "tree canopy", bldg = "footprint", water = "water",
+             height = "height", svf_point = "sky view", aspect = "aspect ratio", coast_km = "coast")
+# model formulas (right-hand sides, without the random intercept that fit_lmm adds)
+rhs_full        <- function(extra = "region") paste(c(extra, paste0(PRED, "_z")), collapse = " + ")
+rhs_parsimonious <- function(extra = "region") paste(c(extra, paste0(PARSIMONIOUS, "_z")), collapse = " + ")
 # natural-unit conversion of z-scored slopes: (multiplier, label)
 UNIT <- list(imperv = list(10, "per +10 pp"), tree = list(10, "per +10 pp"), bldg = list(10, "per +10 pp"),
              water = list(10, "per +10 pp"), height = list(1, "per +1 m"), svf_point = list(-0.1, "per -0.1"),

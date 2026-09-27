@@ -7,7 +7,7 @@
 #
 #   T01 study area, three panels (A Oʻahu, B Honolulu, C ʻEwa)
 #   T02 methodological workflow
-#   T03 night selection (ERA5 wind / cloud, network median, selected nights)
+#   T03 night selection (wind / cloud, network median, selected nights)
 #   T04 why calm and clear: spread of dT across the network vs wind and cloud
 #   T05 how dT is defined (one shared night, both districts)
 #   T06 night-time temperature distributions, all vs calm, clear nights
@@ -24,10 +24,14 @@
 #   T18 leave-one-site-out cross-validation
 #   T19 night-to-night stability of the site pattern
 #
+# Also written: results/island_landcover.json (the land-cover shares of the island and
+# of the two study domains, quoted in Section 1.2 and Appendix B) and the 4 m land-cover
+# rasters in results/cache/ that the maps draw (aggregated once from the C-CAP masks).
+#
 # Usage: Rscript 03_figures.R [01 02 ...]   (no argument = all figures)
 #
-# Packages: ggplot2 (all plots), patchwork (multi-panel layout), sf + terra
-#           (maps), dplyr/tidyr (data shaping), jsonlite (results file),
+# Packages: ggplot2 (all plots), patchwork and cowplot (multi-panel layout, legends),
+#           sf + terra (maps), dplyr/tidyr (data shaping), jsonlite (results file),
 #           scales (colour scales), lubridate (dates).
 # ------------------------------------------------------------------------------
 .here <- if (nzchar(Sys.getenv("THESIS_ROOT"))) file.path(Sys.getenv("THESIS_ROOT"), "analysis") else {
@@ -164,7 +168,7 @@ figT02_workflow <- function() {
     35, 70, 30, 28, "2  Measurement",
     sprintf("iButton loggers in ventilated cup\nshields, ≈1.5m, 30-min interval\nHonolulu %d sites · ʻEwa %d sites\nNov 2024 – Jan 2025\nRandom-point site selection\n(≥ 50m apart)", d$Honolulu$n_sites, d$Ewa$n_sites), "#f4f6f8", "#1f3b57",
     69, 70, 30, 28, "3  Processing",
-    "Readings snapped to 30-min bins\nNetwork median per bin and district\nERA5 wind and cloud joined\nNight = 18:00–06:00 (diurnal date\nstarts 06:00)", "#f4f6f8", "#1f3b57",
+    "Readings snapped to 30-min bins\nNetwork median per bin and district\nECMWF wind and cloud joined\nNight = 18:00–06:00 (diurnal date\nstarts 06:00)", "#f4f6f8", "#1f3b57",
     69, 37, 30, 28, "4  Night selection",
     sprintf("Calm and clear: wind < 10km h⁻¹\nand cloud < 25%% in ≥ 75%% of night\nbins; ≥ 20 sensors; ≥ 18 of 24 bins\nper sensor-night\n→ %d Honolulu + %d ʻEwa nights,\n%d sensor-nights", d$Honolulu$n_nights, d$Ewa$n_nights, d$Honolulu$n_sensor_nights + d$Ewa$n_sensor_nights), "#f4f6f8", "#1f3b57",
     35, 37, 30, 28, "5  Spatial predictors",
@@ -193,15 +197,15 @@ figT02_workflow <- function() {
 # ==============================================================================
 # T03  Night selection
 figT03_night_selection <- function() {
-  # Purpose: show every night of both deployments, the ERA5 criteria, and which
+  # Purpose: show every night of both deployments, the weather criteria, and which
   # nights were retained and why.  All three panels of a district share one time
   # axis; the stretch at the end of the Honolulu record when only one or two
   # loggers were still recording (no network median) is shaded and labelled.
   inv <- read_csv(file.path(PROC, "night_inventory.csv"), col_types = cols(night_date = col_character(), .default = col_guess())) %>%
     mutate(date = as.Date(night_date), mid = as.POSIXct(date, tz = "UTC") + hours(24),
-           cat = case_when(selected ~ "sel", decision != "selected" & frac_calm_clear >= 0.75 ~ "exc", TRUE ~ "oth"))
+           cat = case_when(selected ~ "sel", decision != "selected" & frac_calm_clear >= MIN_FRAC_STEPS ~ "exc", TRUE ~ "oth"))
   hh <- read_csv(file.path(RAW, "logger_readings.csv"), col_types = cols(datetime = col_character(), .default = col_guess())) %>%
-    mutate(time_bin = round_date(read_stamps(datetime), "30 minutes"))
+    mutate(time_bin = round_date(read_stamps(datetime), sprintf("%d minutes", BIN_MINUTES)))
   hn_all <- hh %>% group_by(region, time_bin) %>%
     summarise(med = median(temp_c), lo = quantile(temp_c, 0.1), hi = quantile(temp_c, 0.9), n = n_distinct(sensor_id), .groups = "drop")
   hn <- hn_all %>% filter(n >= MIN_SENSORS_PER_NIGHT)
@@ -317,8 +321,8 @@ figT06_distributions <- function() {
   # Purpose: show what the calm/clear filter does to the sample of night-time
   # readings in each district.
   hh <- read_csv(file.path(RAW, "logger_readings.csv"), col_types = cols(datetime = col_character(), .default = col_guess())) %>%
-    mutate(time_bin = round_date(read_stamps(datetime), "30 minutes"), hd = hour(time_bin) + minute(time_bin) / 60,
-           night_date = format(time_bin - hours(6), "%Y-%m-%d"), is_night = hd >= 18 | hd < 6) %>% filter(is_night)
+    mutate(time_bin = round_date(read_stamps(datetime), sprintf("%d minutes", BIN_MINUTES)), hd = hour(time_bin) + minute(time_bin) / 60,
+           night_date = format(time_bin - hours(NIGHT_END), "%Y-%m-%d"), is_night = hd >= NIGHT_START | hd < NIGHT_END) %>% filter(is_night)
   inv <- read_csv(file.path(PROC, "night_inventory.csv"), col_types = cols(night_date = col_character(), .default = col_guess()))
   panels <- lapply(seq_along(REGIONS), function(j) {
     region <- REGIONS[j]; g <- hh %>% filter(region == !!region)
@@ -494,7 +498,7 @@ figT14_thresholds <- function() {
   # thresholds, and that filtering sharpens the morphological signal.
   t <- as_tibble(RES$threshold_sensitivity)
   nofilter <- t %>% filter(wind_max == 999); comp <- t %>% filter(wind_max == -1)
-  g <- t %>% filter(min_frac == 0.75, wind_max > 0) %>% mutate(cloud = factor(cloud_max, labels = sprintf("cloud < %d%%", sort(unique(cloud_max)))))
+  g <- t %>% filter(min_frac == MIN_FRAC_STEPS, wind_max > 0) %>% mutate(cloud = factor(cloud_max, labels = sprintf("cloud < %d%%", sort(unique(cloud_max)))))
   cloud_cols <- c("#08306b", "#2171b5", "#6baed6", "#bdd7e7")
   one <- function(v, se, ylab, title, legend = FALSE) {
     p <- ggplot(g, aes(wind_max, .data[[v]], colour = cloud)) + theme_thesis() +

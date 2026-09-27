@@ -1,12 +1,12 @@
 #!/usr/bin/env Rscript
 # 00_prepare_inputs.R ----------------------------------------------------------
 # From the complete half-hourly iButton record (data/raw/logger_readings.csv:
-# every reading of every logger on both deployments), the ERA5 hourly wind and
-# cloud series for the two districts (data/external/era5_hourly_series.csv) and the
+# every reading of every logger on both deployments), the hourly wind and
+# cloud series for the two districts (data/external/weather_hourly_series.csv) and the
 # logger positions (data/raw/sites.csv), build the three analysis tables:
 #
 #   data/processed/night_inventory.csv        one row per district x diurnal date (06:00-06:00
-#                                   HST): loggers reporting, ERA5 night means, share of
+#                                   HST): loggers reporting, weather night means, share of
 #                                   calm & clear bins, and the inclusion decision
 #   data/processed/halfhourly_calm_clear.csv  one row per logger x 30-min bin for the diurnal
 #                                   cycles that contain a qualifying night
@@ -23,8 +23,8 @@
 #      reporting in the bin; dT = T_logger - T_median.
 #   3. Night.  18:00-06:00 HST; a diurnal date runs 06:00-06:00 and is labelled by
 #      the date of its first 06:00.
-#   4. Calm & clear night.  ERA5 10 m wind < 10 km/h AND total cloud cover < 25 %
-#      in at least 75 % of the night bins (24 at 30 min); all ERA5 night bins must exist.
+#   4. Calm & clear night.  ECMWF 10 m wind < 10 km/h AND total cloud cover < 25 %
+#      in at least 75 % of the night bins (24 at 30 min); all weather night bins must exist.
 #   5. Network completeness.  A night is analysed only if >= 20 loggers reported.
 #   6. Sensor-night completeness.  A sensor-night needs >= 75 % of its night bins (18 of 24).
 #
@@ -56,51 +56,55 @@ load_binned <- function() {
     mutate(dT_network = temp_c - network_median_temp)
 
   # The weather series (columns datetime, wind, cloud, region) is put on the same grid.
-  # In this study the ERA5 hourly values had been attached to the logger time stamps by
-  # nearest hour, a half-hour stamp taking the value of the following hour, so the series
-  # already has a row per bin; the bin value is the one carried by the :01/:31 stamps of
-  # the main logger group.  A plain hourly series is completed to the bin grid, each
-  # missing bin taking the value of the following hour (the same convention).
-  era <- read_csv(file.path(EXT, "era5_hourly_series.csv"), col_types = cols(datetime = col_character(), .default = col_guess())) %>%
+  # In this study the hourly values (ECMWF IFS analysis via Open-Meteo, see README) were
+  # attached to every logger time stamp by nearest hour (inputs/fetch_weather_series.py),
+  # so the series already has a row per bin.  The bin value is the one carried by the
+  # :01/:31 stamps, the cadence of most loggers: a :31 stamp rounds to the following hour.
+  # (The few loggers on a :00/:30 cadence carry, at :30, the even hour, pandas' round-half-
+  # to-even; their rows are used only in a bin without a :01/:31 stamp, which happens once,
+  # in the first half hour of the Honolulu record, before any analysed night.)  A plain
+  # hourly series is completed to the bin grid, each missing bin taking the value of the
+  # following hour (the same convention).
+  wx <- read_csv(file.path(EXT, "weather_hourly_series.csv"), col_types = cols(datetime = col_character(), .default = col_guess())) %>%
     mutate(datetime = read_stamps(datetime),
            time_bin = round_date(datetime, sprintf("%d minutes", BIN_MINUTES)),
            pref = as.integer(minute(datetime) %% BIN_MINUTES != 1)) %>%  # the main logger cadence (:01/:31) first
     arrange(region, time_bin, pref) %>%
     distinct(region, time_bin, .keep_all = TRUE) %>%
-    transmute(region, time_bin, era5_wind_speed_kmh = wind, era5_cloud_cover_pct = cloud) %>%
+    transmute(region, time_bin, wind_kmh = wind, cloud_pct = cloud) %>%
     group_by(region) %>%
     complete(time_bin = seq(min(time_bin), max(time_bin), by = sprintf("%d min", BIN_MINUTES))) %>%
-    fill(era5_wind_speed_kmh, era5_cloud_cover_pct, .direction = "updown") %>%
+    fill(wind_kmh, cloud_pct, .direction = "updown") %>%
     ungroup()
-  hh <- hh %>% left_join(era, by = c("region", "time_bin"))
-  list(hh = hh, era = era)
+  hh <- hh %>% left_join(wx, by = c("region", "time_bin"))
+  list(hh = hh, wx = wx)
 }
 
 # ---- 3-5. classify every diurnal date of each district ------------------------
-night_inventory <- function(hh, era, wind_max = WIND_MAX_KMH, cloud_max = CLOUD_MAX_PCT,
+night_inventory <- function(hh, wx, wind_max = WIND_MAX_KMH, cloud_max = CLOUD_MAX_PCT,
                             min_frac = MIN_FRAC_STEPS, min_sensors = MIN_SENSORS_PER_NIGHT) {
-  en <- era %>%
+  en <- wx %>%
     mutate(hour_dec = hour(time_bin) + minute(time_bin) / 60,
            night_date = format(time_bin - hours(NIGHT_END), "%Y-%m-%d"),
            is_night = hour_dec >= NIGHT_START | hour_dec < NIGHT_END) %>%
     filter(is_night) %>%
-    mutate(ok = era5_wind_speed_kmh < wind_max & era5_cloud_cover_pct < cloud_max)
+    mutate(ok = wind_kmh < wind_max & cloud_pct < cloud_max)
   inv <- en %>% group_by(region, night_date) %>%
-    summarise(n_era5_bins = n(), frac_calm_clear = mean(ok),
-              wind_night = mean(era5_wind_speed_kmh), cloud_night = mean(era5_cloud_cover_pct),
-              frac_calm = mean(era5_wind_speed_kmh < wind_max), frac_clear = mean(era5_cloud_cover_pct < cloud_max),
+    summarise(n_weather_bins = n(), frac_calm_clear = mean(ok),
+              wind_night = mean(wind_kmh), cloud_night = mean(cloud_pct),
+              frac_calm = mean(wind_kmh < wind_max), frac_clear = mean(cloud_pct < cloud_max),
               .groups = "drop")
   sens <- hh %>% filter(is_night) %>% group_by(region, night_date) %>%
     summarise(n_sensors = n_distinct(sensor_id), n_bins = n_distinct(time_bin),
               T_median_night = mean(network_median_temp), .groups = "drop")
   inv <- full_join(inv, sens, by = c("region", "night_date")) %>%
     mutate(n_sensors = coalesce(n_sensors, 0L),
-           meets_weather = coalesce(frac_calm_clear >= min_frac & n_era5_bins == NIGHT_BINS, FALSE),
+           meets_weather = coalesce(frac_calm_clear >= min_frac & n_weather_bins == NIGHT_BINS, FALSE),
            meets_network = n_sensors >= min_sensors,
            selected = meets_weather & meets_network,
            decision = case_when(
              selected ~ "selected",
-             !meets_weather & coalesce(n_era5_bins < NIGHT_BINS, FALSE) ~ "partial night (deployment/retrieval)",
+             !meets_weather & coalesce(n_weather_bins < NIGHT_BINS, FALSE) ~ "partial night (deployment/retrieval)",
              !meets_weather ~ "not calm and clear",
              TRUE ~ sprintf("fewer than %d sensors reporting", min_sensors))) %>%
     arrange(region, night_date)
@@ -114,7 +118,7 @@ sensor_nights <- function(hh, inv, min_steps = MIN_STEPS_PER_SENSOR_NIGHT) {
     group_by(region, sensor_id, night_date) %>%
     summarise(dT_night = mean(dT_network), dT_night_median = median(dT_network),
               temp_night = mean(temp_c), ref_night = mean(network_median_temp),
-              wind_night = mean(era5_wind_speed_kmh, na.rm = TRUE), cloud_night = mean(era5_cloud_cover_pct, na.rm = TRUE),
+              wind_night = mean(wind_kmh, na.rm = TRUE), cloud_night = mean(cloud_pct, na.rm = TRUE),
               n_steps = n(), .groups = "drop") %>%
     filter(n_steps >= min_steps) %>%
     group_by(region) %>% mutate(night_no = dense_rank(night_date)) %>% ungroup() %>%
@@ -123,18 +127,18 @@ sensor_nights <- function(hh, inv, min_steps = MIN_STEPS_PER_SENSOR_NIGHT) {
 }
 
 main <- function() {
-  b <- load_binned(); hh <- b$hh; era <- b$era
-  inv <- night_inventory(hh, era)
+  b <- load_binned(); hh <- b$hh; wx <- b$wx
+  inv <- night_inventory(hh, wx)
   write_csv(inv, file.path(PROC, "night_inventory.csv"), na = "")
   print(as.data.frame(inv %>% filter(selected | frac_calm_clear >= MIN_FRAC_STEPS)))
 
   keep <- inv %>% filter(selected) %>% select(region, night_date)
   cyc <- hh %>% inner_join(keep, by = c("region", "night_date")) %>%
-    mutate(is_calm = era5_wind_speed_kmh < WIND_MAX_KMH, is_clear = era5_cloud_cover_pct < CLOUD_MAX_PCT) %>%
+    mutate(is_calm = wind_kmh < WIND_MAX_KMH, is_clear = cloud_pct < CLOUD_MAX_PCT) %>%
     arrange(region, sensor_id, datetime) %>%
     transmute(region, sensor_id, datetime = fmt_stamp(datetime), time_bin = fmt_stamp(time_bin), night_date, hour,
               hour_dec, is_night, temp_c, network_median_temp, n_sensors_active, dT_network,
-              era5_wind_speed_kmh, era5_cloud_cover_pct, is_calm, is_clear)
+              wind_kmh, cloud_pct, is_calm, is_clear)
   write_csv(cyc, file.path(PROC, "halfhourly_calm_clear.csv"), na = "")
 
   sn <- sensor_nights(hh, inv)

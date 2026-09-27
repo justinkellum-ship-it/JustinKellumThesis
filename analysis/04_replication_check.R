@@ -10,7 +10,7 @@
 #     uses Wald z tests (the estimates and SEs are the same);
 #   * OLS AIC: R counts the residual variance as a parameter (+2);
 #   * raster fractions: the two libraries differ in which boundary pixels of a
-#     circle they count (< 0.2 pp at 50 m, < 0.03 pp at 100 m);
+#     circle they count (< 0.2 pp at 50 m, < 0.04 pp at 100 m, < 0.01 pp at 200 m);
 #   * the night fixed-effect test: lme4 drops the night dummy that is collinear
 #     with district (9 df); statsmodels keeps it (10 df).
 # ------------------------------------------------------------------------------
@@ -25,7 +25,7 @@ P_ <- fromJSON(gsub(":\\s*NaN", ": null", paste(readLines(file.path(PY, "thesis_
 rows <- list()
 add <- function(quantity, r, p, unit = "") rows[[length(rows) + 1]] <<- tibble(quantity = quantity, R = as.numeric(r), Python = as.numeric(p), unit = unit)
 coef_of <- function(coefs, term) { for (cc in coefs) if (!is.null(cc$term) && cc$term %in% term) return(cc); NULL }
-pterm <- function(t) { m <- c("(Intercept)" = "Intercept", "regionHonolulu" = "region[T.Honolulu]"); if (t %in% names(m)) m[[t]] else t }
+pterm <- function(t) { m <- c("(Intercept)" = "Intercept"); m[REGION_TERM] <- paste0("region[T.", REGIONS[1], "]"); if (t %in% names(m)) m[[t]] else t }   # statsmodels' names
 
 # design and data preparation
 for (reg in REGIONS) {
@@ -38,7 +38,7 @@ for (k in names(R_$scale_rule$max_delta_aic)) add(sprintf("Scale rule: max ΔAIC
 # null models
 for (sc in c("pooled", REGIONS)) add(sprintf("Null model ICC (%s)", sc), R_$null[[sc]]$icc, P_$null[[sc]]$icc)
 # full pooled model
-for (t in c("(Intercept)", "regionHonolulu", paste0(PRED, "_z"))) {
+for (t in c("(Intercept)", REGION_TERM, paste0(PRED, "_z"))) {
   r <- coef_of(R_$full_pooled$coefs, t); p <- coef_of(P_$full_pooled$coefs, pterm(t))
   add(sprintf("Full pooled: %s estimate", t), r$estimate, p$estimate, "°C per SD")
   add(sprintf("Full pooled: %s SE", t), r$se, p$se, "°C per SD")
@@ -50,7 +50,7 @@ add("Full pooled: LRT vs null, chi2", R_$full_pooled$lrt_vs_null[[1]], P_$full_p
 add("Full pooled: LRT morphology | district, chi2", R_$full_pooled$lrt_morphology_given_region[[1]], P_$full_pooled$lrt_morphology_given_region[[1]])
 add("Full pooled: site SD (random intercept)", sqrt(R_$full_pooled$var_site), sqrt(P_$full_pooled$var_site), "°C")
 # parsimonious
-for (t in c("imperv_z", "height_z")) { r <- coef_of(R_$parsimonious_pooled$coefs, t); p <- coef_of(P_$parsimonious_pooled$coefs, t)
+for (t in paste0(PARSIMONIOUS, "_z")) { r <- coef_of(R_$parsimonious_pooled$coefs, t); p <- coef_of(P_$parsimonious_pooled$coefs, t)
   add(sprintf("Parsimonious pooled: %s (natural units)", t), r$estimate_natural, p$estimate_natural, r$natural_unit) }
 # district models
 for (reg in REGIONS) {

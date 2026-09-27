@@ -1,4 +1,4 @@
-region,sensor_id,datetime,time_bin,night_date,hour,hour_dec,is_night,temp_c,network_median_temp,n_sensors_active,dT_network,era5_wind_speed_kmh,era5_cloud_cover_pct,is_calm,is_clear
+region,sensor_id,datetime,time_bin,night_date,hour,hour_dec,is_night,temp_c,network_median_temp,n_sensors_active,dT_network,wind_kmh,cloud_pct,is_calm,is_clear
 Ewa,AD1,2024-11-25 06:01:00,2024-11-25 06:00:00,2024-11-25,6,6.0,False,20.25,21.0625,38,-0.8125,5.637765,61.0,True,False
 Ewa,AD1,2024-11-25 06:31:00,2024-11-25 06:30:00,2024-11-25,6,6.5,False,20.0,20.375,38,-0.375,4.7521367,72.0,True,False
 Ewa,AD1,2024-11-25 07:01:00,2024-11-25 07:00:00,2024-11-25,7,7.0,False,19.75,20.125,38,-0.375,4.7521367,72.0,True,False

@@ -44,18 +44,18 @@ md_table <- function(df, caption, name, align = NULL) {
   message("wrote ", name)
 }
 
-# T1 night inventory ---------------------------------------------------------------
+# Table 2: night inventory (nights.md) ---------------------------------------------
 inv <- read_csv(file.path(PROC, "night_inventory.csv"), col_types = cols(night_date = col_character(), .default = col_guess()))
-sel <- inv %>% filter(selected | frac_calm_clear >= 0.75) %>%
+sel <- inv %>% filter(selected | frac_calm_clear >= MIN_FRAC_STEPS) %>%
   transmute(`Study area` = REG[region], `Night (18:00–06:00 HST)` = trimws(format(as.Date(night_date), "%e %b %Y")),
             `Sensors reporting` = n_sensors, `Night-mean wind (km h⁻¹)` = f2(wind_night, 1), `Night-mean cloud (%)` = round(cloud_night),
             `Share of calm & clear bins` = paste0(round(frac_calm_clear * 100), "%"),
             Decision = recode(decision, "selected" = "analysed", "partial night (deployment/retrieval)" = "excluded: partial night (loggers still being deployed)",
                               "fewer than 20 sensors reporting" = "excluded: one logger still recording"))
-md_table(sel, "Nights on which at least 75% of the available night bins were calm and clear (ERA5 10m wind below 10km h⁻¹ and cloud cover below 25%), with the completeness decision (all 24 bins present; at least 20 loggers reporting). Diurnal dates start at 06:00 HST.",
+md_table(sel, "Nights on which at least 75% of the available night bins were calm and clear (ECMWF 10m wind below 10km h⁻¹ and cloud cover below 25%), with the completeness decision (all 24 bins present; at least 20 loggers reporting). Diurnal dates start at 06:00 HST.",
          "nights", align = c("---", "---", "---:", "---:", "---:", "---:", "---"))
 
-# T2 deployment summary --------------------------------------------------------------
+# Table 1: deployment summary (design.md) --------------------------------------------
 hh <- read_csv(file.path(RAW, "logger_readings.csv"), col_types = cols(datetime = col_character(), .default = col_guess())) %>% mutate(datetime = read_stamps(datetime))
 des <- lapply(REGIONS, function(reg) { d <- R$design[[reg]]; h <- hh %>% filter(region == reg)
   c(`Loggers deployed / recovered` = sprintf("50 / %d", d$n_sites),
@@ -66,18 +66,18 @@ des <- lapply(REGIONS, function(reg) { d <- R$design[[reg]]; h <- hh %>% filter(
 t <- tibble(` ` = names(des[[1]]), Honolulu = unname(des[[1]]), `ʻEwa` = unname(des[[2]]))
 md_table(t, "Summary of the two deployments and of the analysed record.", "design", align = c("---", "---", "---"))
 
-# T4 predictor descriptives --------------------------------------------------------
+# Table 4: predictor descriptives (predictors.md) --------------------------------------
 pb <- read_csv(file.path(TAB, "predictors_by_region.csv"), show_col_types = FALSE) %>% filter(radius_m == RAD)
 rows <- bind_rows(lapply(PRED, function(p) {
   h <- pb %>% filter(region == "Honolulu", predictor == p); e <- pb %>% filter(region == "Ewa", predictor == p)
   d <- if (p %in% c("svf_point", "aspect", "coast_km")) 2 else 1
   tibble(Predictor = NAME[[p]], `Honolulu mean ± SD` = sprintf("%s ± %s", f2(h$mean, d), f2(h$sd, d)), `Honolulu range` = sprintf("%s – %s", f2(h$min, d), f2(h$max, d)),
          `ʻEwa mean ± SD` = sprintf("%s ± %s", f2(e$mean, d), f2(e$sd, d)), `ʻEwa range` = sprintf("%s – %s", f2(e$min, d), f2(e$max, d)),
-         `Honolulu vs ʻEwa, p` = p_fmt(R$region_difference_100m[[p]]$p)) }))
+         `Honolulu vs ʻEwa, p` = p_fmt(R$region_difference[[p]]$p)) }))
 md_table(rows, sprintf("Site predictors at the adopted %dm source-area radius, by study area (sky view factor and coastal distance are point properties of the site). The last column tests whether a descriptor differs between the two districts' sites: it is the p-value of a Mann–Whitney (Wilcoxon rank-sum) test, and small values mean the districts differ.", RAD),
          "predictors", align = c("---", rep("---:", 5)))
 
-# T5 scale selection ---------------------------------------------------------------
+# Table 6: scale selection (scale.md) -----------------------------------------------
 sc <- coefs_df(R$scale_selection)
 st <- read_csv(file.path(TAB, "stepwise_ols_site_means.csv"), show_col_types = FALSE) %>% group_by(region, radius_m) %>% slice_max(step, n = 1) %>% ungroup()
 rows <- bind_rows(lapply(list(c("pooled", "Pooled + study area"), c("Honolulu", "Honolulu"), c("Ewa", "ʻEwa")), function(s) bind_rows(lapply(RADII, function(Rr) {
@@ -87,14 +87,14 @@ rows <- bind_rows(lapply(list(c("pooled", "Pooled + study area"), c("Honolulu", 
 md_table(rows, "Source-area scale selection. AIC and ΔAIC (difference from the best radius within each scope) of the full mixed model (all eight predictors, random intercept per site) fitted by maximum likelihood; R²m and R²c are its marginal and conditional R². The last column gives the R² of a forward-stepwise ordinary least squares regression on site means, fitted as a cross-check.",
          "scale", align = c("---", rep("---:", 6)))
 
-# T6 collinearity -------------------------------------------------------------------
+# Table 7: collinearity (vif.md) ---------------------------------------------------
 rows <- bind_rows(lapply(PRED, function(p) tibble(Predictor = NAME[[p]],
   `VIF Honolulu` = f2(R$collinearity$Honolulu$vif[[p]], 1), `Largest correlation, Honolulu` = f2(R$collinearity$Honolulu$max_abs_corr[[p]]),
   `VIF ʻEwa` = f2(R$collinearity$Ewa$vif[[p]], 1), `Largest correlation, ʻEwa` = f2(R$collinearity$Ewa$max_abs_corr[[p]]), `VIF pooled` = f2(R$collinearity$pooled$vif[[p]], 1))))
 md_table(rows, "Variance inflation factors (VIF) of the eight predictors, for each district and pooled, and the largest correlation of each predictor with any of the other seven in each district (absolute value of Pearson's r), at the site level.",
          "vif", align = c("---", rep("---:", 5)))
 
-# T7 null models --------------------------------------------------------------------
+# Table 5: null models (null.md) ---------------------------------------------------
 rows <- bind_rows(lapply(list(c("pooled", "Pooled (74 sites, 400 sensor-nights)"), c("Honolulu", "Honolulu (36 sites, 248)"), c("Ewa", "ʻEwa (38 sites, 152)")), function(s) {
   n <- R$null[[s[1]]]
   tibble(Model = s[2], `Between-site variance σ²ᵤ (°C²)` = f2(n$var_site, 3), `Between-site SD (°C)` = f2(n$site_sd),
@@ -102,7 +102,7 @@ rows <- bind_rows(lapply(list(c("pooled", "Pooled (74 sites, 400 sensor-nights)"
 md_table(rows, "Variance components of the intercept-only (null) mixed models (REML) and the intraclass correlation coefficient ICC = σ²ᵤ / (σ²ᵤ + σ²ε).",
          "null", align = c("---", rep("---:", 5)))
 
-# T8 single predictors ---------------------------------------------------------------
+# Table 8: single predictors (single.md) -----------------------------------------------
 sp <- coefs_df(R$single_predictor)
 rows <- bind_rows(lapply(list(c("pooled (region-adjusted)", "Pooled (study area as covariate)"), c("Honolulu", "Honolulu"), c("Ewa", "ʻEwa")), function(s) bind_rows(lapply(seq_along(PRED), function(k) {
   g <- sp %>% filter(scope == s[1], predictor == PRED[k])
@@ -113,7 +113,7 @@ rows <- bind_rows(lapply(list(c("pooled (region-adjusted)", "Pooled (study area 
 md_table(rows, "Single-predictor mixed models (random intercept per site). β is the change in ΔT per one standard deviation of the predictor (± standard error, REML); p is from the likelihood-ratio test against the null model (ML). Bold: p < 0.05.",
          "single", align = c("---", "---", rep("---:", 4)))
 
-# T9 full pooled ---------------------------------------------------------------------
+# Table 9: full pooled model (full_pooled.md) ------------------------------------------
 coef_rows <- function(cl) bind_rows(lapply(cl, function(cc) {
   name <- if (cc$term == "(Intercept)") "Intercept (ʻEwa, all predictors at their mean)" else if (cc$term == "regionHonolulu") "Study area: Honolulu (vs ʻEwa)" else NAME[[sub("_z$", "", cc$term)]]
   tibble(Term = name, `Estimate per SD (°C)` = bold(s2(cc$estimate, 3), cc$p < 0.05), SE = f2(cc$se, 3),
@@ -124,7 +124,7 @@ md_table(coef_rows(f$coefs), sprintf("Full pooled mixed model: ΔT ~ study area 
   f$n_obs, f$n_sites, f2(f$r2m), f2(f$r2c), f2(f$var_site, 3), f2(f$var_resid, 3), f$lrt_morphology_given_region[[2]], f$lrt_morphology_given_region[[1]], p_fmt(f$lrt_morphology_given_region[[3]])),
   "full_pooled", align = c("---", "---:", "---:", "---:", "---:", "---"))
 
-# T10 district full models ----------------------------------------------------------------
+# Table 10: district full models (regional.md) ----------------------------------------------
 rows <- bind_rows(lapply(c("(Intercept)", PRED), function(p) {
   r <- tibble(Term = if (p == "(Intercept)") "Intercept" else NAME[[p]])
   for (reg in REGIONS) { lab <- REG[[reg]]
@@ -138,7 +138,7 @@ md_table(rows, sprintf("District full mixed models (eight standardised predictor
   f2(h$r2m), f2(h$r2c), h$lrt_vs_null[[1]], p_fmt(h$lrt_vs_null[[3]]), f2(e$r2m), f2(e$r2c), e$lrt_vs_null[[1]], p_fmt(e$lrt_vs_null[[3]])),
   "regional", align = c("---", "---:", "---:", "---", "---:", "---:", "---"))
 
-# T11 best subsets --------------------------------------------------------------------------
+# Tables 11 and 12: best subsets and relative importance (subsets.md, importance.md) ----------
 pretty_pred <- function(s) { s <- gsub("imperv", "impervious", s); s <- gsub("coast_km", "coast distance", s); s <- gsub("bldg", "footprint", s); gsub("svf_point", "sky view", s) }
 rows <- bind_rows(lapply(REGIONS, function(reg) { b <- R$regional[[reg]]$best_subset
   bind_rows(lapply(seq_along(b$top5), function(k) { m <- b$top5[[k]]
@@ -150,22 +150,22 @@ rows <- bind_rows(lapply(PRED, function(p) tibble(Predictor = NAME[[p]], `Import
                                                   `Importance ʻEwa` = f2(R$regional$Ewa$best_subset$importance[[p]]))))
 md_table(rows, "Relative importance of each predictor: sum of Akaike weights of all candidate models (≤ 3 predictors) that contain it, by study area.", "importance", align = c("---", "---:", "---:"))
 
-# T12 interactions --------------------------------------------------------------------------
+# Table 13: interactions (interactions.md) ---------------------------------------------------
 rows <- bind_rows(lapply(R$interactions$single, function(cc) tibble(Predictor = NAME[[cc$predictor]], `Slope ʻEwa (per SD)` = s2(cc$ewa_slope_z), `Slope Honolulu (per SD)` = s2(cc$hnl_slope_z),
   `Difference ± SE` = sprintf("%s ± %s", s2(cc$interaction_coef), f2(cc$se)), `LRT χ²(1)` = f2(cc$lrt_chi2, 1), p = bold(p_fmt(cc$p), cc$p < 0.05))))
 j <- R$interactions$joint
 md_table(rows, sprintf("Study-area × predictor interactions, each added on its own to the full pooled model and tested by likelihood-ratio test (ML). Slopes are from the model with that interaction (REML). Joint test of all eight interactions: χ²(%d) = %.1f, p %s; the interaction model has R²m = %s.", j$df, j$lrt_chi2, p_fmt(j$p), f2(j$r2m)),
          "interactions", align = c("---", rep("---:", 5)))
 
-# T13 model comparison ------------------------------------------------------------------------
+# Table 14: model comparison (comparison.md) ---------------------------------------------------
 mc <- coefs_df(R$model_comparison) %>%
   mutate(Model = gsub("region", "study area", gsub("region x 8 predictors", "study area × 8 predictors", model, fixed = TRUE), fixed = TRUE),
          Parameters = k, AIC = f2(aic, 1), `ΔAIC` = f2(delta_aic, 1)) %>% select(Model, Parameters, AIC, `ΔAIC`)
 md_table(mc, "Maximum-likelihood AIC of the candidate model structures (all with the same 400 sensor-nights; the parameter count includes the variance components).", "comparison", align = c("---", "---:", "---:", "---:"))
 
-# T14 thresholds ------------------------------------------------------------------------------
+# Table 15: thresholds (thresholds.md) -------------------------------------------------------
 th <- coefs_df(R$threshold_sensitivity) %>%
-  filter((cloud_max == 25 & min_frac == 0.75) | (wind_max == 10 & min_frac == 0.75) | wind_max <= 0 | wind_max == 999 | min_frac != 0.75) %>%
+  filter((cloud_max == CLOUD_MAX_PCT & min_frac == MIN_FRAC_STEPS) | (wind_max == WIND_MAX_KMH & min_frac == MIN_FRAC_STEPS) | wind_max <= 0 | wind_max == 999 | min_frac != MIN_FRAC_STEPS) %>%
   distinct(wind_max, cloud_max, min_frac, .keep_all = TRUE) %>%
   mutate(`Selection rule` = case_when(wind_max == 999 ~ "no weather filter (all complete nights)", wind_max == -1 ~ "windy or cloudy nights only (complement)",
                                       TRUE ~ sprintf("wind < %dkm h⁻¹, cloud < %d%%, ≥ %d%% of bins", as.integer(wind_max), as.integer(cloud_max), as.integer(round(min_frac * 100)))),
@@ -177,7 +177,7 @@ th <- coefs_df(R$threshold_sensitivity) %>%
 md_table(th, "Sensitivity of the results to the night-selection thresholds. Nights were re-selected from the complete record under each rule and the pooled models refitted. β: effect per pooled SD (± SE) in the parsimonious model ΔT ~ study area + impervious + height; R²m (full): marginal R² of the full pooled model; SD sites: standard deviation of site-mean ΔT; r vs base: correlation of site means with those of the adopted rule (wind < 10km h⁻¹, cloud < 25%, ≥ 75% of bins).",
          "thresholds", align = c("---", rep("---:", 7)))
 
-# T15 LOSO --------------------------------------------------------------------------------------
+# Table 17: leave-one-site-out cross-validation (loso.md) --------------------------------------
 cv <- coefs_df(R$loso_cv) %>%
   mutate(Model = recode(model, "full" = "Pooled: study area + 8 predictors", "parsimonious" = "Pooled: study area + impervious + height", "region only" = "Pooled: study area only",
                         "Honolulu full" = "Honolulu: 8 predictors", "Ewa full" = "ʻEwa: 8 predictors",
@@ -185,14 +185,14 @@ cv <- coefs_df(R$loso_cv) %>%
          `RMSE (°C)` = f2(rmse), `MAE (°C)` = f2(mae), r = f2(r), `R²cv` = f2(r2_cv)) %>% select(Model, `RMSE (°C)`, `MAE (°C)`, r, `R²cv`)
 md_table(cv, "Leave-one-site-out cross-validation of site-mean ΔT (each site predicted from the fixed effects of a model fitted without it). R²cv is 1 − SSE/SST over the held-out sites (negative values mean worse than the mean).", "loso", align = c("---", rep("---:", 4)))
 
-# T16 shared nights ---------------------------------------------------------------------------
+# Table 18: shared nights (shared.md) -------------------------------------------------------
 sh <- coefs_df(R$shared_nights$rows) %>%
   transmute(Night = trimws(format(as.Date(night_date), "%e %b %Y")), `Study area` = REG[region], Sensors = n_sensors, `Network median (°C)` = f2(T_median_night, 1),
             `10th–90th percentile of sites (°C)` = sprintf("%s – %s", f2(T_p10, 1), f2(T_p90, 1)), `Coolest – warmest site (°C)` = sprintf("%s – %s", f2(T_min_site, 1), f2(T_max_site, 1)),
             `Wind (km h⁻¹) / cloud (%)` = sprintf("%.1f / %.0f", wind, cloud))
 md_table(sh, "Absolute night-mean (18:00–06:00 HST) air temperatures of the two networks on the two calm, clear nights they share.", "shared", align = c("---", "---", rep("---:", 5)))
 
-# Appendix: site tables ----------------------------------------------------------------------
+# Tables 19 and 20 (Appendix A): site tables (sites.md, sites_predictors.md) -------------------
 site <- read_csv(file.path(TAB, "site_summary.csv"), show_col_types = FALSE) %>%
   inner_join(read_csv(file.path(TAB, "blups.csv"), show_col_types = FALSE) %>% select(sensor_id, blup, latitude, longitude), by = "sensor_id") %>% arrange(region, sensor_id)
 ta <- site %>% transmute(Area = REG[region], Site = sensor_id, `Lat (°N)` = f2(latitude, 4), `Lon (°E)` = f2(longitude, 4), Nights = n_nights, `ΔT (°C)` = s2(dT_site), `SD (°C)` = s2(dT_sd), `BLUP (°C)` = s2(blup))
@@ -200,7 +200,7 @@ md_table(ta, "All 74 sites: coordinates (WGS84), number of analysed nights, site
 tb <- site %>% transmute(Area = REG[region], Site = sensor_id, `Imperv. %` = f2(imperv, 1), `Tree %` = f2(tree, 1), `Bldg %` = f2(bldg, 1), `Water %` = f2(water, 1), `Height m` = f2(height, 1), SVF = f2(svf_point), `H/W` = f2(aspect), `Coast km` = f2(coast_km))
 md_table(tb, sprintf("All 74 sites: the eight descriptors at the %d m source-area radius (sky view factor and coastal distance are point properties).", RAD), "sites_predictors", align = c("---", "---", rep("---:", 8)))
 
-# Software table (Appendix C) --------------------------------------------------------------------------
+# Table 21 (Appendix C): software (software.md) ---------------------------------------------------
 ver <- function(p) tryCatch(as.character(packageVersion(p)), error = function(e) "")
 sw <- tribble(~Package, ~Version, ~Role, ~`Functions used`, ~Reference,
   "R", sub("R version ([0-9.]+).*", "\\1", R.version.string), "the language: arithmetic, median(), cor(), lm(), wilcox.test(), cor.test()", "", "[@rcore2024]",
@@ -220,17 +220,17 @@ sw <- tribble(~Package, ~Version, ~Role, ~`Functions used`, ~Reference,
   "Python replication: rasterio, Shapely, GeoPandas", "1.4.4 / 2.1.2 / 1.1.4", "rasters and vector geometry in the replication", "", "[@gillies2013; @gillies2007]")
 md_table(sw, "Software used for the analysis, with the role of each package and the functions called. Versions are those of the run that produced this document (`results/sessionInfo.txt`).", "software", align = c("---", "---", "---", "---", "---"))
 
-# Replication check (Appendix C) ------------------------------------------------------------------
+# Table 22 (Appendix C): replication check (replication.md) ---------------------------------------
 rcf <- file.path(ROOT, "replication", "replication_check.csv")
 if (file.exists(rcf)) {
   rp <- read_csv(rcf, show_col_types = FALSE) %>% filter(!is.na(Python))
   pick <- rp %>% filter(grepl("^Full pooled: .*_z estimate|^Full pooled: R2|^Null model ICC|best subset: R2m|Interactions: joint|^BLUP SD|^LOSO .*: r$|Scale rule|Full pooled: LRT vs null", quantity)) %>%
     transmute(Quantity = quantity, R = sprintf("%.3f", R), Python = sprintf("%.3f", Python), Difference = sprintf("%+.3f", difference))
-  md_table(pick, sprintf("Agreement between the R analysis (lme4 / lmerTest) and the independent Python replication (statsmodels MixedLM) on the same inputs: a selection of the %d paired quantities in `replication_check.csv` (which also holds 25 maximum-difference checks over the 74 sites). Differences larger than 0.01 are optimizer tolerance (ΔAIC, joint χ²) or a documented implementation choice (one unstable leave-one-site-out fold of the ʻEwa full model in statsmodels).", nrow(rp)),
+  md_table(pick, sprintf("Agreement between the R analysis (lme4 / lmerTest) and the independent Python replication (statsmodels MixedLM) on the same inputs: a selection of the %d paired quantities in `replication_check.csv` (which also holds 25 maximum-difference checks: the descriptors over the 74 sites and ΔT over the 400 sensor-nights). Apart from the night-effect degrees of freedom (an implementation choice: lme4 drops the night dummy that is collinear with the district term), the differences larger than 0.01 are optimizer tolerance (ΔAIC, joint χ²); the leave-one-site-out folds of the over-parameterized ʻEwa full model are the quantities most sensitive to the optimizer in statsmodels.", nrow(rp)),
            "replication", align = c("---", "---:", "---:", "---:"))
 }
 
-# Terrain check (Section 4.7; 06_elevation_check.R) ----------------------------------------------------
+# Table 16: terrain check (elevation.md; Section 4.8, 06_elevation_check.R) -------------------------
 ecf <- file.path(TAB, "elevation_models.csv")
 if (file.exists(ecf)) {
   em <- read_csv(ecf, show_col_types = FALSE)

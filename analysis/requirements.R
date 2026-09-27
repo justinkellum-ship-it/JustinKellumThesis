@@ -1,6 +1,6 @@
 # requirements.R ---------------------------------------------------------------
 # Installs the packages used by the thesis analysis (run once):
-#   Rscript R/requirements.R
+#   Rscript analysis/requirements.R
 # Versions used for the thesis are recorded in results/sessionInfo.txt.
 # ------------------------------------------------------------------------------
 pkgs <- c(

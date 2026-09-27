@@ -45,7 +45,7 @@ def sky_view_factor(pt, bldg, sindex, z0=SENSOR_Z, R=HORIZON_R, n_az=N_AZ):
     """Sky view factor of a horizontal surface at height z0 above ground,
     SVF = (1/N) * sum cos^2(beta_i) over N azimuths, where beta_i is the
     elevation angle of the highest building obstruction along azimuth i
-    (Dozier & Frew 1990 formulation for a horizontal surface)."""
+    (the cos² β relation of Johnson & Watson 1984 for a horizontal surface)."""
     idx = sindex.query(pt.buffer(R), predicate="intersects")
     if len(idx) == 0:
         return 1.0

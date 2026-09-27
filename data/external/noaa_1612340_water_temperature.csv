@@ -1,6 +1,8 @@
 # Hourly water temperature (deg C) at NOAA CO-OPS station 1612340 (Honolulu, HI), 18:00-06:00 local standard time
-# on the nine analysed calm, clear nights; NOAA Tides and Currents data API (product=water_temperature, units=metric,
-# time_zone=lst, interval=h), retrieved 2026-09-26. Used in Sections 1.8 and 5.2 of the thesis (range 25.7-26.5 deg C).
+# on the nine calendar nights of the 11 analysed district-nights (four in Ewa, seven in Honolulu; two dates are shared);
+# NOAA Tides and Currents data API (product=water_temperature, units=metric,
+# time_zone=lst, interval=h), retrieved 2026-09-26. Quoted in Sections 1.8 and 5.2 of the thesis (range 25.7-26.5 deg C);
+# not read by any script.
 night_date,time_lst,water_temp_c
 2024-11-25,2024-11-25 18:00,26.3
 2024-11-25,2024-11-25 19:00,26.2

@@ -44,12 +44,12 @@ The thesis *Island Urban Climatology: Measuring and Modeling Nocturnal Heat in L
 | Script | What it does | Runtime |
 |---|---|---|
 | `00a_compile_logger_readings.R` | reads the loggers' export tables, separates the download application's metadata rows from the readings, writes one record of readings and one table of logger metadata, and checks the stored record against the exports | seconds |
-| `00_prepare_inputs.R` | reads the logger readings, snaps the loggers' clocks to 30-minute bins, computes the district network median, joins the ERA5 wind and cloud series, classifies every night, and writes the sensor-night table that all models use | seconds |
+| `00_prepare_inputs.R` | reads the logger readings, snaps the loggers' clocks to 30-minute bins, computes the district network median, joins the hourly wind and cloud series, classifies every night, and writes the sensor-night table that all models use | seconds |
 | `01_site_predictors.R` | computes the eight urban-form descriptors of every site at 50, 100 and 200 m from the C-CAP 1 m land-cover masks, the FEMA building footprints (including a ray-cast sky view factor) and the GSHHG shoreline | ~7 min |
 | `02_models.R` | fits every mixed-effects model of the thesis (scale selection, null models, single descriptors, full and district models, best subsets, interactions, night effect, threshold sensitivity, cross-validation, site effects, shared nights) and writes `results/thesis_results.json` and the CSV tables | ~1 min |
 | `03_figures.R` | draws 19 of the 22 main-text figures (all but the two photographs and the terrain figure) with ggplot2 and sf/terra | ~10 min |
 | `04_replication_check.R` | compares the R results with the independent Python implementation in `replication/` (Section 9) | seconds |
-| `05_thesis_tables.R` | turns the results into the 22 tables of the thesis, in Markdown, exactly as they appear in the document | seconds |
+| `05_thesis_tables.R` | turns the results into 21 of the thesis's 22 tables (all but the descriptor definitions, which are text), in Markdown, exactly as they appear in the document | seconds |
 | `06_elevation_check.R` | the terrain check (thesis Section 4.8): adds the USGS 3DEP elevation of each site to the models, re-runs the best-subset search and the cross-validation with it, and draws Figure 19 | ~1 min |
 | `07_sensitivity_checks.R` | three site-level checks (thesis Sections 4.8 and 5.4): the models without the warmest site, with a different height for the buildings whose height the inventory does not record, and with the sky view factor of positions inside footprints recomputed | ~7 min |
 | `08_appendix_figures.R` | the land-cover and terrain maps and the sky view factor diagram of Appendix B | ~1 min |
@@ -101,13 +101,13 @@ Every logger returned exactly 2,048 readings, the capacity of the DS1921H memory
 
 ## What comes in
 
-Three files in `data/raw/` and `data/external/`. The logger readings are the record compiled in Step 0: one row per logger and time stamp (no reading has been altered or removed). The sites file gives each logger's district, position and the setting recorded at deployment. The ERA5 series gives the hourly 10 m wind speed and total cloud cover of the reanalysis grid point nearest each district, retrieved from the Open-Meteo historical-weather interface for the whole deployment period.
+Three files in `data/raw/` and `data/external/`. The logger readings are the record compiled in Step 0: one row per logger and time stamp (no reading has been altered or removed). The sites file gives each logger's district, position and the setting recorded at deployment. The weather series gives the hourly 10 m wind speed and total cloud cover at the grid point nearest each district (21.34°N 157.80°W for Honolulu, 21.34°N 158.07°W for ʻEwa), retrieved from the Open-Meteo historical-weather API for the whole deployment period by `analysis/inputs/fetch_weather_series.py` (rerunning it reproduces the committed file byte for byte). Open-Meteo's default historical dataset combines ERA5, ERA5-Land and the ECMWF IFS high-resolution analysis; for this period and place the values are those of the IFS analysis (9 km), which we verified value by value against each model of the API. The thesis calls it the ECMWF analysis.
 
 ```{r inputs}
 hh_raw  <- read_csv(file.path(RAW, "logger_readings.csv"), col_types = cols(datetime = col_character(), .default = col_guess()))
 sites   <- read_csv(file.path(RAW, "sites.csv"), show_col_types = FALSE)
-era_raw <- read_csv(file.path(EXT, "era5_hourly_series.csv"), col_types = cols(datetime = col_character(), .default = col_guess()))
-cat(nrow(hh_raw), "readings from", n_distinct(hh_raw$sensor_id), "loggers;", nrow(sites), "sites;", nrow(era_raw), "ERA5 rows\n")
+wx_raw <- read_csv(file.path(EXT, "weather_hourly_series.csv"), col_types = cols(datetime = col_character(), .default = col_guess()))
+cat(nrow(hh_raw), "readings from", n_distinct(hh_raw$sensor_id), "loggers;", nrow(sites), "sites;", nrow(wx_raw), "weather rows\n")
 head(hh_raw, 3)
 sites %>% count(region, setting) %>% tab(caption = "The logger sites by district and recorded setting")
 ```
@@ -143,35 +143,35 @@ hh <- hh %>% inner_join(med, by = c("region", "time_bin")) %>% mutate(dT_network
 
 The response of the whole thesis is `dT_network`: a logger's air temperature minus the median of all loggers of its district in the same bin. The median (not the mean) is used because it is insensitive to a few extreme sites; because every district is centred on its own median, the two districts can only be compared in absolute terms on the nights they share (Section 4.5 below; thesis Section 4.10).
 
-## Rule 3: attach the ERA5 weather
+## Rule 3: attach the weather series
 
-The ERA5 series carries one value per logger stamp, assigned by nearest hour when the series was retrieved. Within each 30-minute bin the script keeps the value carried by the :01/:31 stamps, the cadence of most loggers (the alternatives are identical in every bin that matters):
+The weather series carries one value per logger stamp, assigned by nearest hour when the series was retrieved. Within each 30-minute bin the script keeps the value carried by the :01/:31 stamps, the cadence of most loggers, for which a :31 stamp rounds to the following hour (the few loggers on a :00/:30 cadence carry the even hour at :30, pandas' round-half-to-even, and their rows are used only in a bin without a :01/:31 stamp, which happens once, before any analysed night):
 
-```{r era, eval = FALSE}
-era <- era_raw %>% mutate(datetime = read_stamps(datetime), time_bin = round_date(datetime, "30 minutes"),
+```{r weather, eval = FALSE}
+wx <- wx_raw %>% mutate(datetime = read_stamps(datetime), time_bin = round_date(datetime, "30 minutes"),
                           pref = as.integer(minute(datetime) %% 30 != 1)) %>%     # :01/:31 rows first
   arrange(region, time_bin, pref) %>% distinct(region, time_bin, .keep_all = TRUE) %>%
-  transmute(region, time_bin, era5_wind_speed_kmh = wind, era5_cloud_cover_pct = cloud)
+  transmute(region, time_bin, wind_kmh = wind, cloud_pct = cloud)
 ```
 
 ## Rules 4 to 6: which nights, which loggers
 
 ```{r rules, echo = FALSE}
-tibble(Rule = c("calm & clear night", "complete ERA5", "network completeness", "sensor-night completeness"),
-       Definition = c("ERA5 10 m wind < 10 km h⁻¹ AND total cloud < 25 % in at least 75 % of the 24 night bins",
-                      "all 24 ERA5 night bins present (partial first/last nights are not classified)",
+tibble(Rule = c("calm & clear night", "complete weather series", "network completeness", "sensor-night completeness"),
+       Definition = c("ECMWF 10 m wind < 10 km h⁻¹ AND total cloud < 25 % in at least 75 % of the 24 night bins",
+                      "all 24 weather bins of the night present (partial first/last nights are not classified)",
                       "at least 20 loggers of the district reporting on the night (a median of a handful of loggers is not a district reference)",
                       "a sensor-night is kept only if at least 18 of its 24 bins are present"),
        Constant = c("WIND_MAX_KMH, CLOUD_MAX_PCT, MIN_FRAC_STEPS", "", "MIN_SENSORS_PER_NIGHT", "MIN_STEPS_PER_SENSOR_NIGHT"),
-       Origin = c("study-specific thresholds on the reanalysis; the calm/clear requirement itself follows Oke (1982) and Stewart & Oke (2012)",
+       Origin = c("study-specific thresholds on the ECMWF analysis; the calm/clear requirement itself follows Oke (1982) and Stewart & Oke (2012)",
                   "study-specific", "study-specific", "study-specific")) %>% tab()
 ```
 
 Every rule is a named constant in `helpers.R`, so the threshold sensitivity of Section 4.2 can vary them. Running the whole step:
 
 ```{r run-prep, results = "hold"}
-b <- load_binned(); hh <- b$hh; era <- b$era
-inv <- night_inventory(hh, era)                       # one row per district x diurnal date
+b <- load_binned(); hh <- b$hh; wx <- b$wx
+inv <- night_inventory(hh, wx)                       # one row per district x diurnal date
 sn  <- sensor_nights(hh, inv)                         # one row per logger x selected night
 inv %>% count(region, decision) %>% pivot_wider(names_from = region, values_from = n, values_fill = 0) %>% tab()
 ```
@@ -379,12 +379,12 @@ bind_rows(lapply(REGIONS, function(r) as_tibble(res$regional[[r]]$best_subset$to
 Because the night-selection thresholds are study-specific choices, the whole selection is re-run from the binned record under a grid of rules (wind 8–20 km h⁻¹, cloud 15–50 %, bin share 60–100 %, and no weather filter at all), and the parsimonious and full pooled models are refitted each time. The only thing that changes between runs is the arguments of `night_inventory()`:
 
 ```{r thresholds, eval = FALSE}
-inv <- night_inventory(hh, era, wind_max = w, cloud_max = cc, min_frac = f)
+inv <- night_inventory(hh, wx, wind_max = w, cloud_max = cc, min_frac = f)
 sn  <- sensor_nights(hh, inv)
 ```
 
 ```{r thresholds-result}
-as_tibble(res$threshold_sensitivity) %>% filter(min_frac == 0.75 & cloud_max == 25 | wind_max %in% c(999, -1)) %>%
+as_tibble(res$threshold_sensitivity) %>% filter(min_frac == MIN_FRAC_STEPS & cloud_max == CLOUD_MAX_PCT | wind_max %in% c(999, -1)) %>%
   select(wind_max, cloud_max, nights_honolulu, nights_ewa, sensor_nights, beta_imperv_z, beta_height_z, r2m_full, corr_with_baseline) %>%
   mutate(across(where(is.numeric), ~ round(.x, 2))) %>% tab(caption = "Wind threshold varied at cloud < 25 %; 999 = no weather filter, −1 = windy/cloudy nights only")
 ```
@@ -474,7 +474,7 @@ Every figure is a ggplot2 object saved as PNG (300 dpi) and PDF in `results/figu
 knitr::include_graphics(file.path(FIG, "T16_dT_maps.png"), rel_path = FALSE)
 ```
 
-`05_thesis_tables.R` reads `thesis_results.json` and the CSV tables and writes the 22 tables of the thesis as Markdown files in `results/thesis_tables/`, with the captions and the rounding used in the document, so that every printed number can be traced to a line of code. `08_appendix_figures.R` draws the three figures of Appendix B: the island and district land cover from the aggregated C-CAP masks (with the areas quoted in the thesis's Section 1.2, `results/island_landcover.json`), the terrain of Oʻahu and Honolulu from the USGS 10 m DEM (the two subsampled grids in `data/external/`), and the sky view factor diagram for one site, drawn with the same ray casting as `01_site_predictors.R` with the angle of every ray kept.
+`05_thesis_tables.R` reads `thesis_results.json` and the CSV tables and writes 21 of the thesis's 22 tables (all but the descriptor definitions) as Markdown files in `results/thesis_tables/`, with the captions and the rounding used in the document, so that every printed number can be traced to a line of code. `08_appendix_figures.R` draws the three figures of Appendix B: the island and district land cover from the aggregated C-CAP masks (with the areas quoted in the thesis's Section 1.2, `results/island_landcover.json`), the terrain of Oʻahu and Honolulu from the USGS 10 m DEM (the two subsampled grids in `data/external/`), and the sky view factor diagram for one site, drawn with the same ray casting as `01_site_predictors.R` with the angle of every ray kept.
 
 # Reproducing everything
 
@@ -501,7 +501,7 @@ cat(sprintf("%d quantities compared; %d differ by more than 0.01\n", sum(!is.na(
 rp %>% filter(abs(difference) > 0.01) %>% mutate(across(where(is.numeric), ~ signif(.x, 4))) %>% tab(caption = "The only differences larger than 0.01")
 ```
 
-The sensor-night ΔT values agree to machine precision; the raster fractions differ by at most 0.2 percentage points at 50 m (the two raster libraries make different choices about pixels on the circle's edge); every coefficient, variance component, AIC and R² agrees to three decimals. The residual differences are documented implementation choices: `lme4` drops the night dummy that is collinear with district (so the night-effect test has 9 rather than 10 df), one ʻEwa cross-validation fold converged to a poor optimum in statsmodels, and the two joint-test statistics differ in the second decimal because of optimizer tolerances. In other words: the conclusions of the thesis do not depend on which software fitted the models.
+The sensor-night ΔT values agree to machine precision; the raster fractions differ by at most 0.2 percentage points at 50 m (the two raster libraries make different choices about pixels on the circle's edge); every coefficient and variance component agrees to three decimals and every AIC and R² to two. The residual differences are documented implementation choices: `lme4` drops the night dummy that is collinear with district (so the night-effect test has 9 rather than 10 df), and the two joint-test statistics differ in the second decimal because of optimizer tolerances; the leave-one-site-out folds of the over-parameterized ʻEwa full model, whose fits are the least well determined, are the quantities most sensitive to the optimizer (r = 0.649 in R against 0.658 in statsmodels). In other words: the conclusions of the thesis do not depend on which software fitted the models.
 
 # References for the software
 

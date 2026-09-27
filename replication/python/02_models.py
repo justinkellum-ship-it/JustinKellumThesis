@@ -192,13 +192,16 @@ def step1_descriptives(pr):
     RES["predictors_by_region"] = {f"{r}_{R}": {p: dict(mean=float(t[(t.region == r) & (t.radius_m == R) & (t.predictor == p)]["mean"].iloc[0]),
                                                          sd=float(t[(t.region == r) & (t.radius_m == R) & (t.predictor == p)]["sd"].iloc[0]))
                                                 for p in PRED} for r in REGIONS for R in RADII}
-    # region difference tests (site level, 100 m) Mann-Whitney
-    p100 = pr[pr.radius_m == 100]
-    RES["region_difference_100m"] = {}
+
+
+def step1b_region_difference(pr, radius):
+    # district difference tests at the adopted radius (site level): Mann-Whitney
+    pa = pr[pr.radius_m == radius]
+    RES["region_difference"] = dict(radius_m=int(radius))
     for p in PRED:
-        a, b = p100[p100.region == "Honolulu"][p], p100[p100.region == "Ewa"][p]
+        a, b = pa[pa.region == REGIONS[0]][p], pa[pa.region == REGIONS[1]][p]
         u, pv = stats.mannwhitneyu(a, b)
-        RES["region_difference_100m"][p] = dict(honolulu_median=float(a.median()), ewa_median=float(b.median()), p=float(pv))
+        RES["region_difference"][p] = dict(honolulu_median=float(a.median()), ewa_median=float(b.median()), p=float(pv))
 
 
 def step2_scale(pr, sn):
@@ -452,8 +455,8 @@ def step9_night(d, m_ml_base):
 
 
 def step10_thresholds(sds):
-    hh, era = prep.load_binned()
-    base_inv = prep.night_inventory(hh, era)
+    hh, wx = prep.load_binned()
+    base_inv = prep.night_inventory(hh, wx)
     pr = pd.read_csv(os.path.join(PDATA, "site_predictors_multiscale.csv"))
     p100 = pr[pr.radius_m == RES["adopted_radius"]].drop(columns=["radius_m", "region"])
     coords = None
@@ -463,9 +466,9 @@ def step10_thresholds(sds):
     grid = [(w, c, f) for w in (8, 10, 12, 15, 20) for c in (15, 25, 35, 50) for f in (0.75,)]
     grid += [(10, 25, 0.6), (10, 25, 0.9), (10, 25, 1.0), (999, 999, 0.0)]      # last = no weather filter
     for w, c, f in grid:
-        inv = prep.night_inventory(hh, era, wind_max=w, cloud_max=c, min_frac=f)
+        inv = prep.night_inventory(hh, wx, wind_max=w, cloud_max=c, min_frac=f)
         if w == 999:
-            inv["meets_weather"] = inv.n_era5_bins == 24
+            inv["meets_weather"] = inv.n_weather_bins == 24
             inv["selected"] = inv.meets_weather & inv.meets_network
         sn = prep.sensor_nights(hh, inv)
         if sn.empty or sn.region.nunique() < 2:
@@ -489,7 +492,7 @@ def step10_thresholds(sds):
                          mean_wind=float(d.wind_night.mean()), mean_cloud=float(d.cloud_night.mean())))
     # complement: nights that fail the baseline weather rule (windy/cloudy), >=20 sensors
     inv = base_inv.copy()
-    inv["selected"] = (~inv.meets_weather) & inv.meets_network & (inv.n_era5_bins == 24)
+    inv["selected"] = (~inv.meets_weather) & inv.meets_network & (inv.n_weather_bins == 24)
     sn = prep.sensor_nights(hh, inv)
     d = sn.merge(p100, on="sensor_id")
     d["region"] = pd.Categorical(d.region, categories=["Ewa", "Honolulu"])
@@ -510,8 +513,8 @@ def step10_thresholds(sds):
     t = pd.DataFrame(rows)
     t.to_csv(os.path.join(TAB, "threshold_sensitivity.csv"), index=False)
     RES["threshold_sensitivity"] = t.to_dict("records")
-    # night-level relation: spread of dT across the network vs ERA5 wind, all complete nights with >=20 sensors
-    inv_all = base_inv[(base_inv.n_era5_bins == 24) & base_inv.meets_network].copy()
+    # night-level relation: spread of dT across the network vs wind, all complete nights with >=20 sensors
+    inv_all = base_inv[(base_inv.n_weather_bins == 24) & base_inv.meets_network].copy()
     inv_all["selected"] = True
     sn_all = prep.sensor_nights(hh, inv_all)
     spread = (sn_all.groupby(["region", "night_date"]).agg(sd_dT=("dT_night", "std"), wind=("wind_night", "mean"),
@@ -525,13 +528,13 @@ def step10_thresholds(sds):
                                     sd_other=float(g[~g.selected].sd_dT.mean()))
                            for reg, g in spread.groupby("region")}
     # inventory summary for the text
-    RES["night_inventory"] = {reg: dict(n_complete=int(((g.n_era5_bins == 24) & g.meets_network).sum()),
+    RES["night_inventory"] = {reg: dict(n_complete=int(((g.n_weather_bins == 24) & g.meets_network).sum()),
                                         n_selected=int(g.selected.sum()),
                                         n_meets_weather=int(g.meets_weather.sum()),
                                         excluded_network=g[g.meets_weather & ~g.meets_network].night_date.tolist(),
-                                        excluded_partial=g[(g.n_era5_bins < 24) & (g.frac_calm_clear >= 0.75)].night_date.tolist(),
-                                        frac_calm_only=float((g[(g.n_era5_bins == 24)].frac_calm >= 0.75).mean()),
-                                        frac_clear_only=float((g[(g.n_era5_bins == 24)].frac_clear >= 0.75).mean()))
+                                        excluded_partial=g[(g.n_weather_bins < 24) & (g.frac_calm_clear >= 0.75)].night_date.tolist(),
+                                        frac_calm_only=float((g[(g.n_weather_bins == 24)].frac_calm >= 0.75).mean()),
+                                        frac_clear_only=float((g[(g.n_weather_bins == 24)].frac_clear >= 0.75).mean()))
                               for reg, g in base_inv.groupby("region")}
 
 
@@ -656,7 +659,7 @@ def step13_shared_nights():
                              T_min_site=float(g.groupby("sensor_id").temp_c.mean().min()),
                              T_max_site=float(g.groupby("sensor_id").temp_c.mean().max()),
                              sd_sites=float(g.groupby("sensor_id").temp_c.mean().std()),
-                             wind=float(g.era5_wind_speed_kmh.mean()), cloud=float(g.era5_cloud_cover_pct.mean())))
+                             wind=float(g.wind_kmh.mean()), cloud=float(g.cloud_pct.mean())))
     t = pd.DataFrame(rows)
     t.to_csv(os.path.join(TAB, "shared_nights.csv"), index=False)
     RES["shared_nights"] = dict(nights=shared, rows=t.to_dict("records"),
@@ -699,6 +702,7 @@ def main():
     RES["scale_rule"] = dict(rule="minimax delta AIC over pooled / Honolulu / Ewa full models",
                              max_delta_aic={int(k): float(v) for k, v in worst.items()})
     print("   adopted radius:", adopted, worst.to_dict())
+    step1b_region_difference(pr, adopted)
     d, _ = load(adopted)
     d, sds, means = zscore_frame(d, PRED)
     RES["z_sds"], RES["z_means"] = sds, means

@@ -6,12 +6,14 @@
 # from the iButton loggers with the manufacturer's application: one row per reading
 # (logger, date, time, temperature in °C) plus one row per logger that carries the
 # application's metadata as JSON (model, serial number, sample rate, mission start,
-# sample counts).  Nothing in these tables has been edited.
+# sample counts).  Nothing in these tables has been edited.  Export tables from other
+# loggers need only the four reading columns; the metadata rows are optional.
 #
 # Output:
 #   data/raw/logger_readings.csv   every reading: district, logger, time stamp (HST), °C
 #   data/raw/logger_metadata.csv   one row per logger: model, serial number, sample rate,
 #                                  mission start, sample counts, range of the record
+#                                  (only when the exports carry metadata rows)
 #
 # The script also compares the readings with the stored logger_readings.csv when it
 # already exists, so that the record used by the analysis can be checked against the
@@ -59,16 +61,18 @@ main <- function() {
   rd <- bind_rows(lapply(parts, `[[`, "readings")) %>%
     mutate(region = factor(region, levels = names(EXPORTS))) %>%
     arrange(region, sensor_id, datetime) %>% mutate(region = as.character(region))
-  md <- bind_rows(lapply(parts, `[[`, "metadata")) %>% arrange(match(region, names(EXPORTS)), sensor_id)
-  # every logger has one metadata row and its readings; no reading is duplicated
-  stopifnot(!any(duplicated(rd[c("sensor_id", "datetime")])),
-            setequal(md$sensor_id, unique(rd$sensor_id)), !any(duplicated(md$sensor_id)))
+  md <- bind_rows(lapply(parts, `[[`, "metadata"))
+  if (nrow(md)) md <- md %>% arrange(match(region, names(EXPORTS)), sensor_id)
+  # no reading is duplicated; when the exports carry metadata, every logger has one row of it
+  stopifnot(!any(duplicated(rd[c("sensor_id", "datetime")])))
+  has_meta <- nrow(md) > 0
+  if (has_meta) stopifnot(setequal(md$sensor_id, unique(rd$sensor_id)), !any(duplicated(md$sensor_id)))
   counts <- rd %>% group_by(region, sensor_id) %>%
     summarise(readings = n(), first = min(datetime), last = max(datetime), .groups = "drop")
-  md <- md %>% left_join(counts, by = c("region", "sensor_id"))
   cat(sprintf("%d readings from %d loggers (%s); %d metadata rows\n", nrow(rd), n_distinct(rd$sensor_id),
               paste(sprintf("%s %d", names(table(rd$region)), table(rd$region)), collapse = ", "), nrow(md)))
-  print(md %>% count(model, sample_rate_s, resolution_c, rollover))
+  print(counts %>% group_by(region) %>% summarise(loggers = n(), readings = sum(readings), first = min(first), last = max(last)))
+  if (has_meta) { md <- md %>% left_join(counts, by = c("region", "sensor_id")); print(md %>% count(model, sample_rate_s, resolution_c, rollover)) }
 
   out <- file.path(RAW, "logger_readings.csv")
   if (file.exists(out)) {                                    # the stored record must agree reading for reading
@@ -78,7 +82,7 @@ main <- function() {
     cat("the stored logger_readings.csv agrees with the exports reading for reading\n")
   }
   write_csv(rd, out, na = "")
-  write_csv(md, file.path(RAW, "logger_metadata.csv"), na = "")
+  if (has_meta) write_csv(md, file.path(RAW, "logger_metadata.csv"), na = "")
   invisible(rd)
 }
 
