@@ -2,7 +2,7 @@
 
 Data, code and results of the M.A. thesis *Island Urban Climatology: Measuring and Modeling
 Nocturnal Heat in Leeward Coastal Oʻahu, Hawaiʻi* (Justin Kellum, Department of Geography and
-Environment, University of Hawaiʻi at Mānoa, 2026).
+Environment, University of Hawaiʻi at Mānoa, 2027).
 
 One hundred low-cost iButton stations recorded canopy-layer air temperature every 30 minutes in
 two districts of leeward Oʻahu between November 2024 and January 2025: the compact, partly
@@ -133,6 +133,6 @@ The measurements, processed data, results and figures (`data/`, `results/`,
 licence (`LICENSE-DATA.md`); the third-party inputs keep their providers' terms. If you use the
 data or code, please cite the thesis (`CITATION.cff`):
 
-> Kellum, J. (2026). *Island Urban Climatology: Measuring and Modeling Nocturnal Heat in Leeward
+> Kellum, J. (2027). *Island Urban Climatology: Measuring and Modeling Nocturnal Heat in Leeward
 > Coastal Oʻahu, Hawaiʻi*. M.A. thesis, University of Hawaiʻi at Mānoa.
 > https://github.com/justinkellum-ship-it/JustinKellumThesis
