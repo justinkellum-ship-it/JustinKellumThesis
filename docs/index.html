@@ -130,7 +130,7 @@
 
 <section id="network"><div class="wrap">
   <h2>A sensor network built with the community</h2>
-  <p class="prose">Between November 2024 and January 2025, one hundred Thermochron iButton loggers in polystyrene-cup radiation shields recorded air temperature every 30 minutes at about 1.5 m, on street-sign posts, poles and fences across two contrasting districts: the compact, partly high-rise core of Honolulu and the low-rise suburban plain of ʻEwa–Kapolei, 25 km apart on the same leeward coast. Residents allowed stations on their fences, and community volunteers helped deploy and recover them.</p>
+  <p class="prose">Between November 2024 and January 2025, one hundred Thermochron iButton loggers in polystyrene-cup radiation shields recorded air temperature every 30 minutes at about 1.5 m, on street-sign posts, poles and fences across two contrasting districts: the compact, partly high-rise core of Honolulu and the low-rise suburban plain of ʻEwa–Kapolei, 25 km apart on the same leeward coast. The community stewarded the monitoring project, hosting the stations and helping to deploy and recover them.</p>
   <div class="photos">
     <figure><img src="photos/station.jpg" alt="An iButton logger in a tea-bag sleeve inside an inverted white cup, and a station mounted on a street-sign post" loading="lazy">
       <figcaption><b>The station.</b> A Thermochron iButton DS1921H logger suspended in a tea-bag sleeve inside an inverted white polystyrene cup that serves as a radiation shield, and a station on a street-sign post in Honolulu at about 1.5 m (circled).</figcaption></figure>
@@ -190,9 +190,9 @@
   <h2>How the analysis was done</h2>
   <div class="two">
     <div>
-      <p class="prose">Every number, table and figure in the thesis is produced from the logger readings by nine R scripts, run in order by a single command. The <a href="Analysis_walkthrough.html">walkthrough</a> shows the code of each step with its output and names the package that does it.</p>
+      <p class="prose">Every number, table and figure in the thesis is produced from the loggers' export tables by ten R scripts, run in order by a single command. The <a href="Analysis_walkthrough.html">walkthrough</a> shows the code of each step with its output and names the package that does it.</p>
       <ol class="steps">
-        <li><span class="n">1</span><span><b>From readings to sensor-nights.</b> Every reading is snapped to the nearest 30-minute bin (the loggers' clocks differ by up to two minutes), the district network median is computed in each bin, ΔT = T − median, the ERA5 wind and cloud series are joined, and every night is classified: calm and clear means ERA5 10 m wind below 10 km h⁻¹ and cloud below 25% in at least 75% of the 24 night bins, with at least 20 loggers reporting. Result: 400 sensor-nights on 11 nights.</span></li>
+        <li><span class="n">1</span><span><b>From readings to sensor-nights.</b> The loggers' export tables are compiled into one record of 151,552 readings (with the serial number, sample rate and mission of every logger kept in a metadata table). Every reading is snapped to the nearest 30-minute bin (the loggers' clocks differ by up to two minutes), the district network median is computed in each bin, ΔT = T − median, the ERA5 wind and cloud series are joined, and every night is classified: calm and clear means ERA5 10 m wind below 10 km h⁻¹ and cloud below 25% in at least 75% of the 24 night bins, with at least 20 loggers reporting. Result: 400 sensor-nights on 11 nights.</span></li>
         <li><span class="n">2</span><span><b>Describing each site.</b> Eight descriptors within 50, 100 and 200 m of each logger from public data: impervious, tree-canopy and water fractions (NOAA C-CAP 1 m masks), building-footprint fraction, area-weighted mean building height and canyon aspect ratio (FEMA / ORNL USA Structures), a ray-cast sky view factor at the sensor, and distance to the GSHHG shoreline.</span></li>
         <li><span class="n">3</span><span><b>Mixed-effects models.</b> Linear mixed models with a random intercept per site (lme4, Satterthwaite tests from lmerTest): scale selection by AIC, null models and ICC, single descriptors, the full pooled and district models, all 93 subsets of up to three descriptors with Akaike weights, district × descriptor interactions, a night effect, a 24-rule threshold sensitivity, leave-one-site-out cross-validation, the site random effects, and an absolute comparison of the districts on the two nights they share.</span></li>
         <li><span class="n">4</span><span><b>Checks.</b> Site elevation added to the models (the coastal effect is not an elevation effect); the models without the warmest site; a different height for the buildings whose height the inventory does not record; the sky view factor of positions recorded inside footprints recomputed. No conclusion changes.</span></li>
@@ -203,6 +203,7 @@
       <h3 style="margin-top:0">Scripts, in the order they run</h3>
       <table>
         <tr><th>Script</th><th>Does</th></tr>
+        <tr><td><code>00a_compile_logger_readings.R</code></td><td>the loggers' export tables → one record, plus logger metadata</td></tr>
         <tr><td><code>00_prepare_inputs.R</code></td><td>binning, network median, ERA5 join, night selection, sensor-night table</td></tr>
         <tr><td><code>01_site_predictors.R</code></td><td>the eight descriptors at three radii</td></tr>
         <tr><td><code>02_models.R</code></td><td>every mixed-effects model and test; writes <code>thesis_results.json</code></td></tr>
@@ -226,7 +227,7 @@ Rscript analysis/run_all.R        # ~30 min</code></pre>
     <div class="prose">
       <p>The repository <a href="https://github.com/justinkellum-ship-it/JustinKellumThesis">justinkellum-ship-it/JustinKellumThesis</a> holds the measurements, the processed tables, the code, the results and the walkthrough:</p>
       <ul class="plain">
-        <li><b>data/raw</b> — <a href="https://github.com/justinkellum-ship-it/JustinKellumThesis/blob/main/data/raw/logger_readings.csv">logger_readings.csv</a>: 151,552 readings (district, logger, time stamp, °C); <a href="https://github.com/justinkellum-ship-it/JustinKellumThesis/blob/main/data/raw/sites.csv">sites.csv</a>: the 74 loggers with their positions and settings.</li>
+        <li><b>data/raw</b> — the loggers' <a href="https://github.com/justinkellum-ship-it/JustinKellumThesis/tree/main/data/raw/exports">export tables</a> as downloaded; <a href="https://github.com/justinkellum-ship-it/JustinKellumThesis/blob/main/data/raw/logger_readings.csv">logger_readings.csv</a>: the 151,552 readings compiled from them (district, logger, time stamp, °C); <a href="https://github.com/justinkellum-ship-it/JustinKellumThesis/blob/main/data/raw/logger_metadata.csv">logger_metadata.csv</a>: model, serial number and mission of every logger; <a href="https://github.com/justinkellum-ship-it/JustinKellumThesis/blob/main/data/raw/sites.csv">sites.csv</a>: the 74 loggers with their positions and settings.</li>
         <li><b>data/external</b> — ERA5 wind and cloud series, shoreline and base-map layers, DEM subsamples, tide-station water temperature. The large inputs (C-CAP tiles, FEMA footprints, GSHHG) are downloaded separately; the README says where.</li>
         <li><b>data/processed</b> and <b>data/descriptors</b> — the night inventory, the 400 sensor-nights, and the eight descriptors of every site at three radii.</li>
         <li><b>results</b> — <a href="https://github.com/justinkellum-ship-it/JustinKellumThesis/blob/main/results/thesis_results.json">thesis_results.json</a> (every statistic in the thesis), the CSV tables, the figures, and the tables as printed.</li>
@@ -251,7 +252,7 @@ Rscript analysis/run_all.R        # ~30 min</code></pre>
 </div></section>
 
 <footer><div class="wrap">
-  <p>This work was possible only because dozens of residents of Honolulu and ʻEwa allowed sensors on their fences and sign posts, and because community volunteers helped deploy and recover the stations.</p>
+  <p>This work was possible only because the communities of Honolulu and ʻEwa stewarded this monitoring project, hosting the stations and helping to deploy and recover them.</p>
   <p>© 2026 Justin Kellum · Department of Geography and Environment, University of Hawaiʻi at Mānoa</p>
 </div></footer>
 

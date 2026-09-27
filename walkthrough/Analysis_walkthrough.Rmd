@@ -43,6 +43,7 @@ The thesis *Island Urban Climatology: Measuring and Modeling Nocturnal Heat in L
 
 | Script | What it does | Runtime |
 |---|---|---|
+| `00a_compile_logger_readings.R` | reads the loggers' export tables, separates the download application's metadata rows from the readings, writes one record of readings and one table of logger metadata, and checks the stored record against the exports | seconds |
 | `00_prepare_inputs.R` | reads the logger readings, snaps the loggers' clocks to 30-minute bins, computes the district network median, joins the ERA5 wind and cloud series, classifies every night, and writes the sensor-night table that all models use | seconds |
 | `01_site_predictors.R` | computes the eight urban-form descriptors of every site at 50, 100 and 200 m from the C-CAP 1 m land-cover masks, the FEMA building footprints (including a ray-cast sky view factor) and the GSHHG shoreline | ~7 min |
 | `02_models.R` | fits every mixed-effects model of the thesis (scale selection, null models, single descriptors, full and district models, best subsets, interactions, night effect, threshold sensitivity, cross-validation, site effects, shared nights) and writes `results/thesis_results.json` and the CSV tables | ~1 min |
@@ -83,11 +84,24 @@ tab(pk)
 
 Why these and not others: `lme4` is the reference implementation of linear mixed models in R; `lmerTest` adds the Satterthwaite approximation that `lme4` deliberately omits, so that each coefficient has a defensible p-value; `sf` and `terra` are the current standard vector and raster packages (the older `sp`/`rgdal`/`raster` stack was retired in 2023); `performance` is used only to confirm that the R² and ICC computed by hand from `VarCorr()` are right. The whole chain is base R plus these packages, with no compiled code of our own and nothing hidden. `results/sessionInfo.txt` records the exact versions of the run that produced the thesis.
 
+# Step 0: from the loggers' export tables to one record (`00a_compile_logger_readings.R`)
+
+The measurement exists first as the tables produced by the manufacturer's application when the recovered loggers were read out: one table per district in `data/raw/exports/`, one row per reading (logger, date, time, °C) and one row per logger carrying the application's metadata as JSON (model, serial number, sample rate, mission start, sample counts). Nothing in these tables has been edited. `00a_compile_logger_readings.R` separates the metadata rows from the readings, writes `data/raw/logger_readings.csv` (every reading, sorted by district, logger and time) and `data/raw/logger_metadata.csv` (one row per logger), and refuses to proceed if a reading is duplicated or if the stored record disagrees with the exports in any reading:
+
+```{r exports}
+md <- read_csv(file.path(RAW, "logger_metadata.csv"), show_col_types = FALSE)
+md %>% count(region, model, sample_rate_s, resolution_c, app_version) %>% tab(caption = "The loggers, as the download application describes them")
+md %>% group_by(region) %>% summarise(loggers = n(), readings = sum(readings), first = min(first), last = max(last),
+                                     rollover = sum(rollover)) %>% tab()
+```
+
+Every logger returned exactly 2,048 readings, the capacity of the DS1921H memory (42.7 days at 30 minutes): for 72 loggers the mission simply stopped recording when the memory was full, and for two (HNL01 and HNL34) the memory rolled over, so their record is the last 42.7 days before read-out rather than the first. This is why the Honolulu network thins out after early January (Figure 5 of the thesis), and it is a property of the instrument, not a choice made in processing.
+
 # Step 1: from logger readings to sensor-nights (`00_prepare_inputs.R`)
 
 ## What comes in
 
-Three files in `data/raw/` and `data/external/`. The logger readings are the study's own measurement: one row per logger and time stamp, as downloaded from the 74 recovered iButton loggers (no reading has been altered or removed). The sites file gives each logger's district, position and the setting recorded at deployment. The ERA5 series gives the hourly 10 m wind speed and total cloud cover of the reanalysis grid point nearest each district, retrieved from the Open-Meteo historical-weather interface for the whole deployment period.
+Three files in `data/raw/` and `data/external/`. The logger readings are the record compiled in Step 0: one row per logger and time stamp (no reading has been altered or removed). The sites file gives each logger's district, position and the setting recorded at deployment. The ERA5 series gives the hourly 10 m wind speed and total cloud cover of the reanalysis grid point nearest each district, retrieved from the Open-Meteo historical-weather interface for the whole deployment period.
 
 ```{r inputs}
 hh_raw  <- read_csv(file.path(RAW, "logger_readings.csv"), col_types = cols(datetime = col_character(), .default = col_guess()))

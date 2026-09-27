@@ -22,7 +22,10 @@ and the step-by-step walkthrough of the analysis)
 ```
 data/
   raw/           the study's own measurements
-                   logger_readings.csv   151,552 readings: district, logger, time stamp (HST), °C
+                   exports/              the loggers' export tables as downloaded (one per district: every reading,
+                                         plus one metadata row per logger from the download application)
+                   logger_readings.csv   the 151,552 readings compiled from them: district, logger, time stamp (HST), °C
+                   logger_metadata.csv   one row per logger: model, serial number, sample rate, mission start, sample counts
                    sites.csv             the 74 loggers: district, WGS84 position, setting recorded at deployment
   external/      data from other providers (small files included; large ones downloaded, see below)
                    era5_hourly_series.csv            ERA5 10 m wind and cloud cover, one grid point per district
@@ -54,6 +57,7 @@ docs/            the project website
 
 | Script | What it does | Runtime |
 |---|---|---|
+| `00a_compile_logger_readings.R` | reads the loggers' export tables, separates the metadata rows, writes `logger_readings.csv` and `logger_metadata.csv`, and checks the stored record against the exports reading for reading | seconds |
 | `00_prepare_inputs.R` | snaps the loggers' clocks to 30-minute bins, computes the district network median and ΔT, joins the ERA5 series, classifies every night, writes the sensor-night table | seconds |
 | `01_site_predictors.R` | the eight descriptors of every site at 50, 100 and 200 m: impervious, tree-canopy, building-footprint and water fractions, mean building height, canyon aspect ratio, ray-cast sky view factor, distance to the coast | ~7 min |
 | `02_models.R` | every mixed-effects model: scale selection, collinearity, null models, single descriptors, full pooled and district models, best subsets and Akaike weights, district × descriptor interactions, night effect, threshold sensitivity, model comparison, site effects and leave-one-site-out cross-validation, shared nights | ~1 min |
@@ -114,9 +118,11 @@ python replication/python/02_models.py
 
 ## Data sources
 
-Logger readings: Thermochron iButton DS1921H loggers in polystyrene-cup radiation shields at about
-1.5 m on public sign posts, poles and fences, downloaded at recovery; the positions in
-`sites.csv` are those of the posts. Weather: ERA5 (Hersbach et al. 2020) hourly 10 m wind speed
+Logger readings: Thermochron iButton DS1921H loggers (0.5 °C resolution, 2,048-reading memory) in
+polystyrene-cup radiation shields at about 1.5 m on public sign posts, poles and fences, read out at
+recovery with the manufacturer's application; every logger returned exactly 2,048 readings, the first
+42.7 days of its mission for 72 loggers and the last 42.7 days for two whose memory rolled over
+(`logger_metadata.csv`). The positions in `sites.csv` are those of the posts. Weather: ERA5 (Hersbach et al. 2020) hourly 10 m wind speed
 and total cloud cover via the Open-Meteo archive interface. Surface: NOAA C-CAP 2021
 high-resolution land cover (Hawaiʻi); FEMA/ORNL USA Structures; GSHHG full-resolution shoreline
 (Wessel & Smith 1996). Terrain: USGS 3DEP 1 m DEM via the Elevation Point Query Service

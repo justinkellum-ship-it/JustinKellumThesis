@@ -3,6 +3,8 @@
 # Regenerates every analysis table, result and figure of the thesis from the
 # raw logger record and the public geospatial inputs, in order:
 #
+#   00a_compile_logger_readings.R  the loggers' export tables -> logger_readings.csv,
+#                          logger_metadata.csv (seconds; skipped if data/raw/exports is absent)
 #   00_prepare_inputs.R    binning, network median, night selection (seconds)
 #   01_site_predictors.R   C-CAP / FEMA / SVF / shoreline descriptors (~7 min)
 #   02_models.R            all mixed models and checks (~1 min)
@@ -28,8 +30,10 @@ here <- {
 }
 Sys.setenv(THESIS_ROOT = normalizePath(file.path(here, "..")))
 t_all <- Sys.time()
-for (s in c("00_prepare_inputs.R", "01_site_predictors.R", "02_models.R", "03_figures.R", "06_elevation_check.R",
-            "07_sensitivity_checks.R", "08_appendix_figures.R")) {
+scripts <- c("00a_compile_logger_readings.R", "00_prepare_inputs.R", "01_site_predictors.R", "02_models.R", "03_figures.R",
+             "06_elevation_check.R", "07_sensitivity_checks.R", "08_appendix_figures.R")
+if (!dir.exists(file.path(Sys.getenv("THESIS_ROOT"), "data", "raw", "exports"))) scripts <- scripts[-1]
+for (s in scripts) {
   cat("\n=== ", s, "\n", sep = "")
   t0 <- Sys.time()
   status <- system2("Rscript", c(shQuote(file.path(here, s))), env = c(paste0("THESIS_ROOT=", Sys.getenv("THESIS_ROOT")), "PROJ_NETWORK=OFF"))
