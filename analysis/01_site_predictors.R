@@ -29,7 +29,7 @@ suppressPackageStartupMessages({ library(sf); library(terra) })
 Sys.setenv(PROJ_NETWORK = "OFF"); sf_proj_network(FALSE)   # no datum-grid downloads
 sf_use_s2(FALSE)
 
-CRS_M    <- 6634        # NAD83(PA11) / UTM zone 4N (metres) - the C-CAP projection
+# CRS_M, LANDCOVER, BUILDINGS_FILE, HEIGHT_FILL_M, HEIGHT_RANGE_M and COAST_FILE come from helpers.R
 SENSOR_Z <- 1.5         # sensor height above ground (m)
 N_AZ     <- 36          # azimuths for the sky view factor
 HORIZON_R <- 200        # horizon search radius for the SVF (m)
@@ -37,9 +37,12 @@ QUADSEGS <- 16          # 64-vertex circles (same discretisation as the Python v
 
 # ---- inputs -------------------------------------------------------------------
 ccap_mask <- function(kind) {
-  # one virtual mosaic per C-CAP mask; the tiles do not overlap
-  files <- list.files(file.path(EXT, "ccap"), pattern = paste0(kind, ".*\\.tif$"), full.names = TRUE)
-  vrt(files, filename = file.path(tempdir(), paste0("ccap_", kind, ".vrt")), overwrite = TRUE)
+  # one virtual mosaic per land-cover class raster; the tiles do not overlap.  `kind` is a
+  # name in LANDCOVER (helpers.R) or a file-name pattern
+  pattern <- if (kind %in% names(LANDCOVER)) LANDCOVER[[kind]]$pattern else kind
+  files <- list.files(file.path(EXT, LANDCOVER_DIR), pattern = paste0(pattern, ".*\\.tif$"), full.names = TRUE)
+  stopifnot("no land-cover tiles found for this class" = length(files) > 0)
+  vrt(files, filename = file.path(tempdir(), paste0("landcover_", pattern, ".vrt")), overwrite = TRUE)
 }
 
 raster_fraction <- function(r, geom, values) {
@@ -49,6 +52,15 @@ raster_fraction <- function(r, geom, values) {
   n <- length(v)
   if (n == 0) return(list(frac = setNames(rep(NA_real_, length(values)), values), n = 0L))
   list(frac = setNames(vapply(values, function(k) 100 * sum(v == k, na.rm = TRUE) / n, numeric(1)), values), n = n)
+}
+
+buildings_near <- function(geom, dist = 300) {
+  # the footprints within `dist` m of `geom` (projected, CRS_M), read with a spatial filter
+  # expressed in the footprint layer's own CRS, heights filled and clipped as in main()
+  f <- file.path(EXT, BUILDINGS_FILE)
+  layer_crs <- st_crs(st_read(f, query = sprintf("SELECT * FROM \"%s\" LIMIT 1", st_layers(f)$name[1]), quiet = TRUE))
+  b <- st_read(f, quiet = TRUE, wkt_filter = st_as_text(st_transform(st_buffer(geom, dist), layer_crs)))
+  st_transform(b, CRS_M) %>% mutate(height_m = pmin(pmax(coalesce(height_m, HEIGHT_FILL_M), HEIGHT_RANGE_M[1]), HEIGHT_RANGE_M[2]))
 }
 
 building_metrics <- function(geom, bldg) {
@@ -105,16 +117,16 @@ main <- function() {
   pts <- st_transform(st_as_sf(sites, coords = c("longitude", "latitude"), crs = 4326, remove = FALSE), CRS_M)
 
   message("Loading building footprints ...")
-  bldg <- st_transform(st_read(file.path(EXT, "buildings_oahu.gpkg"), quiet = TRUE), CRS_M) %>%
-    mutate(height_m = pmin(pmax(coalesce(height_m, 3), 0.5), 60))
+  bldg <- st_transform(st_read(file.path(EXT, BUILDINGS_FILE), quiet = TRUE), CRS_M) %>%
+    mutate(height_m = pmin(pmax(coalesce(height_m, HEIGHT_FILL_M), HEIGHT_RANGE_M[1]), HEIGHT_RANGE_M[2]))
   # keep only the footprints that can matter (within 250 m of any site: the largest
   # radius plus a margin) so that the repeated spatial queries below stay fast
   near <- unique(unlist(st_intersects(st_buffer(st_geometry(pts), max(RADII, HORIZON_R) + 50), bldg)))
   bldg <- bldg[sort(near), ]
   message(nrow(bldg), " footprints within reach of the sites")
-  coast <- st_transform(st_read(file.path(EXT, "oahu_gshhs_f.geojson"), quiet = TRUE), CRS_M)
+  coast <- st_transform(st_read(file.path(EXT, COAST_FILE), quiet = TRUE), CRS_M)
   coast_line <- st_boundary(st_union(coast))
-  masks <- list(impervious = ccap_mask("impervious"), canopy = ccap_mask("canopy"), water = ccap_mask("water"))
+  masks <- lapply(LANDCOVER, function(l) ccap_mask(l$pattern))            # impervious, tree, water
 
   rows <- list()
   for (i in seq_len(nrow(pts))) {
@@ -123,13 +135,13 @@ main <- function() {
     coast_d <- as.numeric(st_distance(st_geometry(p), coast_line))
     for (R in RADII) {
       g <- st_buffer(st_geometry(p), R, nQuadSegs = QUADSEGS)
-      imp <- raster_fraction(masks$impervious, g, 1)$frac[["1"]]
-      can <- raster_fraction(masks$canopy, g, c(1, 2))$frac
-      wat <- raster_fraction(masks$water, g, 1)$frac[["1"]]
+      imp <- raster_fraction(masks$impervious, g, LANDCOVER$impervious$value)$frac[[1]]
+      can <- raster_fraction(masks$tree, g, LANDCOVER$tree$value)$frac[[1]]
+      wat <- raster_fraction(masks$water, g, LANDCOVER$water$value)$frac[[1]]
       bm <- building_metrics(g, bldg)
       rows[[length(rows) + 1]] <- tibble(
         sensor_id = p$sensor_id, region = p$region, radius_m = R,
-        imperv = imp, tree = can[["1"]], water = wat,
+        imperv = imp, tree = can, water = wat,
         bldg = bm$bldg_frac, height = bm$zH, height_max = bm$zH_max, n_bldg = bm$n_bldg,
         aspect = bm$hw_ratio, svf_point = svf, coast_km = coast_d / 1000)
     }

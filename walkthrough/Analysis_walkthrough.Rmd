@@ -235,13 +235,11 @@ The full computation takes about seven minutes (the building layer holds every f
 ```{r demo-predictors, cache = TRUE}
 source(file.path(root, "analysis", "01_site_predictors.R"), encoding = "UTF-8")       # function definitions only
 sites <- read_csv(file.path(PROC, "sensor_nights.csv"), show_col_types = FALSE) %>% distinct(sensor_id, .keep_all = TRUE)   # coordinates come with the stored table
-pts <- st_transform(st_as_sf(sites, coords = c("longitude", "latitude"), crs = 4326, remove = FALSE), 6634)
+pts <- st_transform(st_as_sf(sites, coords = c("longitude", "latitude"), crs = 4326, remove = FALSE), CRS_M)
 p1 <- pts[pts$sensor_id == "HNL50", ]                                          # the compact high-rise site of Waikīkī
 circle <- st_buffer(st_geometry(p1), 100, nQuadSegs = 16)
-bldg <- st_read(file.path(EXT, "buildings_oahu.gpkg"), quiet = TRUE,
-                wkt_filter = st_as_text(st_transform(st_buffer(st_geometry(p1), 300), 32604))) %>% st_transform(6634) %>%
-  mutate(height_m = pmin(pmax(coalesce(height_m, 5), 0.5), 60))
-imp <- raster_fraction(ccap_mask("impervious"), circle, 1)
+bldg <- buildings_near(st_geometry(p1), 300)                                 # footprints within 300 m, heights filled as in the script
+imp <- raster_fraction(ccap_mask("impervious"), circle, LANDCOVER$impervious$value)
 bm  <- building_metrics(circle, bldg)
 svf <- sky_view_factor(st_geometry(p1), bldg)
 cat(sprintf("HNL50 at 100 m: impervious %.1f %% of %d pixels; footprint %.1f %%; mean height %.1f m; H/W %.2f; SVF at the sensor %.2f\n",

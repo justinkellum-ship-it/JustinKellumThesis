@@ -41,7 +41,7 @@ source(file.path(.here, "02_models.R"), encoding = "UTF-8")     # fit_lmm(), lrt
 SC <- list()
 DEFAULT_HEIGHT_M <- 5            # the repeated value in the footprint layer
 DEFAULT_SHARE_MAX <- 0.5         # part B: sites above this share of default-height building area are left out
-CRS_M    <- 6634                 # NAD83(PA11) / UTM zone 4N, as in 01_site_predictors.R
+# CRS_M comes from helpers.R
 QUADSEGS <- 16                   # 64-vertex circles, as in 01_site_predictors.R
 
 load_analysis <- function() {
@@ -137,7 +137,7 @@ check_hnl08 <- function(d, sds, res) {
 # ---- B: default building heights ------------------------------------------------------------------------
 default_height_share <- function() {
   f_out <- file.path(DER, "site_default_height_share.csv")
-  gpkg <- file.path(EXT, "buildings_oahu.gpkg")
+  gpkg <- file.path(EXT, BUILDINGS_FILE)
   if (!file.exists(gpkg)) {
     stopifnot(file.exists(f_out))          # the footprint layer is not in the repository; use the stored shares
     return(read_csv(f_out, show_col_types = FALSE))
@@ -171,7 +171,7 @@ height_fill_variant <- function(fill_m = 3) {
   # height and canyon aspect ratio at 100 m with the buildings that have no recorded
   # height (5 m in the footprint file) set to `fill_m` instead
   f_out <- file.path(DER, sprintf("site_height_fill%dm_100m.csv", fill_m))
-  gpkg <- file.path(EXT, "buildings_oahu.gpkg")
+  gpkg <- file.path(EXT, BUILDINGS_FILE)
   if (!file.exists(gpkg)) { stopifnot(file.exists(f_out)); return(read_csv(f_out, show_col_types = FALSE)) }
   suppressPackageStartupMessages(library(sf))
   sp <- new.env(); source(file.path(.here, "01_site_predictors.R"), local = sp, encoding = "UTF-8")
@@ -218,7 +218,7 @@ check_default_heights <- function(d, sds, res) {
 # ---- C: sensor positions inside building footprints -----------------------------------------------------
 svf_footprint_table <- function() {
   f_out <- file.path(DER, "site_svf_footprint_check.csv")
-  gpkg <- file.path(EXT, "buildings_oahu.gpkg")
+  gpkg <- file.path(EXT, BUILDINGS_FILE)
   if (!file.exists(gpkg)) { stopifnot(file.exists(f_out)); return(read_csv(f_out, show_col_types = FALSE)) }
   suppressPackageStartupMessages(library(sf))
   sp <- new.env()                                                            # sky_view_factor() and its constants,

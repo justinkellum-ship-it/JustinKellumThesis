@@ -17,7 +17,7 @@
 suppressPackageStartupMessages({ library(sf); library(terra); library(ggplot2); library(patchwork) })
 Sys.setenv(PROJ_NETWORK = "OFF"); sf_proj_network(FALSE); sf_use_s2(FALSE)
 
-CRS_M <- 6634
+# CRS_M, LANDCOVER, BUILDINGS_FILE and COAST_FILE come from helpers.R
 C_OCEAN <- "#dbe9f4"; C_LAND <- "#f7f5f0"; C_PAVED <- "#c9c9c9"; C_BLDG <- "#6e6e6e"
 C_TREE <- "#8fbf7f"; C_WATER <- "#a9c8e6"; C_COAST <- "#4f6d8a"
 REG_COL <- c(Honolulu = "#c0392b", Ewa = "#2471a3")
@@ -39,7 +39,7 @@ theme_map <- function(base_size = 8) {
           panel.border = element_rect(fill = NA, colour = "#444444", linewidth = 0.4))
 }
 
-load_island <- function() st_transform(st_read(file.path(EXT, "oahu_gshhs_f.geojson"), quiet = TRUE), CRS_M)
+load_island <- function() st_transform(st_read(file.path(EXT, COAST_FILE), quiet = TRUE), CRS_M)
 
 load_sites <- function(radius = 100) {
   sn <- read_csv(file.path(PROC, "sensor_nights.csv"), col_types = cols(night_date = col_character(), .default = col_guess()))
@@ -64,8 +64,9 @@ equal_bounds <- function(dom) {
 }
 
 ccap_vrt <- function(kind) {
-  files <- list.files(file.path(EXT, "ccap"), pattern = paste0(kind, ".*\\.tif$"), full.names = TRUE)
-  vrt(files, filename = file.path(tempdir(), paste0("ccap_", kind, ".vrt")), overwrite = TRUE)
+  pattern <- if (kind %in% names(LANDCOVER)) LANDCOVER[[kind]]$pattern else kind
+  files <- list.files(file.path(EXT, LANDCOVER_DIR), pattern = paste0(pattern, ".*\\.tif$"), full.names = TRUE)
+  vrt(files, filename = file.path(tempdir(), paste0("landcover_", pattern, ".vrt")), overwrite = TRUE)
 }
 
 tint_raster <- function(kind, value, bounds, block, key) {
@@ -81,8 +82,10 @@ tint_raster <- function(kind, value, bounds, block, key) {
 raster_df <- function(r, name = "v") { d <- as.data.frame(r, xy = TRUE); names(d)[3] <- name; d$x <- round(d$x, 3); d$y <- round(d$y, 3); d }
 
 load_buildings <- function(bounds) {
-  b <- st_read(file.path(EXT, "buildings_oahu.gpkg"), quiet = TRUE,
-               wkt_filter = st_as_text(st_transform(st_as_sfc(st_bbox(c(bounds), crs = st_crs(CRS_M))), 32604)))
+  # the spatial filter must be expressed in the footprint layer's own CRS
+  f <- file.path(EXT, BUILDINGS_FILE)
+  layer_crs <- st_crs(st_read(f, query = sprintf("SELECT * FROM \"%s\" LIMIT 1", st_layers(f)$name[1]), quiet = TRUE))
+  b <- st_read(f, quiet = TRUE, wkt_filter = st_as_text(st_transform(st_as_sfc(st_bbox(c(bounds), crs = st_crs(CRS_M))), layer_crs)))
   st_transform(b, CRS_M)
 }
 
@@ -99,7 +102,7 @@ basemap <- function(bounds, island, buildings = NULL, key = "dom", block = 4,
                              scale_alpha_identity()))
   }
   if (canopy) {
-    d <- raster_df(tint_raster("canopy", 1, bounds, block, key)); d$v <- d$v * alpha_tree
+    d <- raster_df(tint_raster("tree", 1, bounds, block, key)); d$v <- d$v * alpha_tree
     layers <- c(layers, list(geom_raster(data = d, aes(x, y, alpha = v), fill = C_TREE, interpolate = TRUE)))
   }
   if (water) {

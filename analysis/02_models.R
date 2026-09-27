@@ -37,6 +37,9 @@
 .here <- if (nzchar(Sys.getenv("THESIS_ROOT"))) file.path(Sys.getenv("THESIS_ROOT"), "analysis") else {
   .f <- sub("^--file=", "", grep("^--file=", commandArgs(FALSE), value = TRUE)); if (length(.f)) dirname(.f[1]) else "." }
 source(file.path(.here, "helpers.R"), encoding = "UTF-8")
+# the district term of the pooled models: the first district against the second (reference level)
+stopifnot(length(REGIONS) == 2)     # the district comparisons below are written for two districts
+REGION_TERM <- paste0("region", REGIONS[1])
 source(file.path(.here, "00_prepare_inputs.R"), encoding = "UTF-8")          # load_binned(), night_inventory(), sensor_nights()
 suppressPackageStartupMessages({ library(lme4); library(lmerTest); library(performance); library(car) })
 
@@ -109,7 +112,7 @@ load_radius <- function(radius) {
   pr <- read_csv(file.path(DER, "site_predictors_multiscale.csv"), show_col_types = FALSE)
   p <- pr %>% filter(radius_m == radius) %>% select(-radius_m, -region)
   d <- sn %>% inner_join(p, by = "sensor_id") %>%
-    mutate(region = factor(region, levels = c("Ewa", "Honolulu")))     # ʻEwa = reference level
+    mutate(region = factor(region, levels = rev(REGIONS)))     # the second district is the reference level
   list(d = d, pr = pr)
 }
 site_means <- function(d) d %>% group_by(region, sensor_id) %>%
@@ -132,7 +135,7 @@ step1_descriptives <- function(pr) {
   # district difference at 100 m: Mann-Whitney (Wilcoxon rank-sum, normal approximation)
   p100 <- pr %>% filter(radius_m == 100)
   RES$region_difference_100m <<- setNames(lapply(PRED, function(p) {
-    a <- p100[[p]][p100$region == "Honolulu"]; b <- p100[[p]][p100$region == "Ewa"]
+    a <- p100[[p]][p100$region == REGIONS[1]]; b <- p100[[p]][p100$region == REGIONS[2]]
     list(honolulu_median = median(a), ewa_median = median(b),
          p = suppressWarnings(wilcox.test(a, b, exact = FALSE, correct = TRUE))$p.value)
   }), PRED)
@@ -219,7 +222,7 @@ step4_null <- function(d) {
   }
   m <- fit_lmm(d, "region", reml = TRUE); vc <- var_comp(m); ct <- coef_table(m)
   out$pooled_region <- list(var_site = vc$var_site, var_resid = vc$var_resid, icc = vc$var_site / (vc$var_site + vc$var_resid),
-                            region_coef = ct$estimate[ct$term == "regionHonolulu"], region_p = ct$p[ct$term == "regionHonolulu"])
+                            region_coef = ct$estimate[ct$term == REGION_TERM], region_p = ct$p[ct$term == REGION_TERM])
   nt <- bind_rows(lapply(names(out), function(k) as_tibble(out[[k]]) %>% mutate(scope = k))) %>% select(scope, everything())
   write.csv(nt, file.path(TAB, "null_models.csv"), row.names = FALSE)
   RES$null <<- out
@@ -259,13 +262,13 @@ step6_full <- function(d, sds) {
   # predicted for each district's own average site, and for an ʻEwa-average site placed in Honolulu?
   prof <- d %>% distinct(sensor_id, .keep_all = TRUE) %>% group_by(region) %>% summarise(across(paste0(PRED, "_z"), mean))
   pr_of <- function(reg) setNames(as.numeric(prof[prof$region == reg, paste0(PRED, "_z")]), PRED)
-  pred <- function(region, pf) unname(fe["(Intercept)"] + (if (region == "Honolulu") fe["regionHonolulu"] else 0) +
+  pred <- function(region, pf) unname(fe["(Intercept)"] + (if (region == REGIONS[1]) fe[REGION_TERM] else 0) +
                                         sum(fe[paste0(PRED, "_z")] * pf[PRED]))
-  hnl <- pr_of("Honolulu"); ewa <- pr_of("Ewa")
-  RES$full_pooled$region_gap_at_pooled_mean <<- unname(fe["regionHonolulu"])
-  RES$full_pooled$pred_hnl_profile_in_hnl <<- pred("Honolulu", hnl)
-  RES$full_pooled$pred_ewa_profile_in_ewa <<- pred("Ewa", ewa)
-  RES$full_pooled$pred_ewa_profile_in_hnl <<- pred("Honolulu", ewa)
+  hnl <- pr_of(REGIONS[1]); ewa <- pr_of(REGIONS[2])
+  RES$full_pooled$region_gap_at_pooled_mean <<- unname(fe[REGION_TERM])
+  RES$full_pooled$pred_hnl_profile_in_hnl <<- pred(REGIONS[1], hnl)
+  RES$full_pooled$pred_ewa_profile_in_ewa <<- pred(REGIONS[2], ewa)
+  RES$full_pooled$pred_ewa_profile_in_hnl <<- pred(REGIONS[1], ewa)
   RES$full_pooled$morphology_contribution_hnl_minus_ewa <<- unname(sum(fe[paste0(PRED, "_z")] * (hnl - ewa)))
   # parsimonious pooled model (district + impervious + height) used by the sensitivity analyses
   mp <- fit_lmm(d, "region + imperv_z + height_z", reml = TRUE); mp_ml <- fit_lmm(d, "region + imperv_z + height_z", reml = FALSE)
@@ -314,7 +317,7 @@ step7_regional <- function(d, sds) {
 step8_interactions <- function(d, m_ml_base) {
   base <- rhs_full("region")
   t <- bind_rows(lapply(PRED, function(pred) {
-    pz <- paste0(pred, "_z"); key <- paste0("regionHonolulu:", pz)
+    pz <- paste0(pred, "_z"); key <- paste0(REGION_TERM, ":", pz)
     f <- paste0(base, " + region:", pz)
     m <- fit_lmm(d, f, reml = FALSE); l <- lrt(m, m_ml_base); mr <- fit_lmm(d, f, reml = TRUE)
     fe <- fixef(mr); se_key <- unname(sqrt(diag(vcov(mr)))[names(fe) == key])
@@ -356,7 +359,7 @@ step10_thresholds <- function(sds) {
   base_sn <- sensor_nights(hh, base_inv)
   base_site <- base_sn %>% group_by(sensor_id) %>% summarise(dT = mean(dT_night))
   prep_d <- function(sn) {
-    d <- sn %>% inner_join(p100, by = "sensor_id") %>% mutate(region = factor(region, levels = c("Ewa", "Honolulu")))
+    d <- sn %>% inner_join(p100, by = "sensor_id") %>% mutate(region = factor(region, levels = rev(REGIONS)))
     for (p in PRED) d[[paste0(p, "_z")]] <- (d[[p]] - RES$z_means[[p]]) / sds[[p]]
     d
   }
@@ -366,7 +369,7 @@ step10_thresholds <- function(sds) {
     nn <- inv %>% filter(selected) %>% count(region)
     fe <- fixef(m); se <- sqrt(diag(vcov(m)))
     tibble(wind_max = w, cloud_max = cc, min_frac = f,
-           nights_honolulu = sum(nn$n[nn$region == "Honolulu"]), nights_ewa = sum(nn$n[nn$region == "Ewa"]), sensor_nights = nrow(d),
+           nights_honolulu = sum(nn$n[nn$region == REGIONS[1]]), nights_ewa = sum(nn$n[nn$region == REGIONS[2]]), sensor_nights = nrow(d),
            beta_imperv_z = unname(fe["imperv_z"]), se_imperv = unname(se[names(fe) == "imperv_z"]),
            beta_height_z = unname(fe["height_z"]), se_height = unname(se[names(fe) == "height_z"]),
            r2m_parsimonious = r2_nakagawa(m)$r2m, r2m_full = r2_nakagawa(mf)$r2m,
@@ -379,18 +382,18 @@ step10_thresholds <- function(sds) {
   for (i in seq_len(nrow(grid))) {
     w <- grid$w[i]; cc <- grid$cc[i]; f <- grid$f[i]
     inv <- night_inventory(hh, era, wind_max = w, cloud_max = cc, min_frac = f)
-    if (w == 999) inv <- inv %>% mutate(meets_weather = coalesce(n_era5_bins == 24, FALSE), selected = meets_weather & meets_network)
+    if (w == 999) inv <- inv %>% mutate(meets_weather = coalesce(n_era5_bins == NIGHT_BINS, FALSE), selected = meets_weather & meets_network)
     sn <- sensor_nights(hh, inv)
     if (!nrow(sn) || n_distinct(sn$region) < 2) next
     rows[[length(rows) + 1]] <- one(prep_d(sn), inv, w, cc, f)
   }
   # complement: the nights that fail the weather rule (windy and/or cloudy), >= 20 loggers
-  inv <- base_inv %>% mutate(selected = !meets_weather & meets_network & coalesce(n_era5_bins == 24, FALSE))
+  inv <- base_inv %>% mutate(selected = !meets_weather & meets_network & coalesce(n_era5_bins == NIGHT_BINS, FALSE))
   rows[[length(rows) + 1]] <- one(prep_d(sensor_nights(hh, inv)), inv, -1, -1, -1)
   t <- bind_rows(rows); write_table(t, "threshold_sensitivity")
   RES$threshold_sensitivity <<- pred_rows(t)
   # night-level relation between the spread of dT across the network and the ERA5 weather
-  inv_all <- base_inv %>% filter(coalesce(n_era5_bins == 24, FALSE), meets_network) %>% mutate(selected = TRUE)
+  inv_all <- base_inv %>% filter(coalesce(n_era5_bins == NIGHT_BINS, FALSE), meets_network) %>% mutate(selected = TRUE)
   sn_all <- sensor_nights(hh, inv_all)
   spread <- sn_all %>% group_by(region, night_date) %>%
     summarise(sd_dT = sd(dT_night), wind = mean(wind_night), cloud = mean(cloud_night), n = n(), .groups = "drop") %>%
@@ -404,11 +407,11 @@ step10_thresholds <- function(sds) {
          n_nights = nrow(g), sd_selected = mean(g$sd_dT[g$selected]), sd_other = mean(g$sd_dT[!g$selected]))
   }), REGIONS)
   RES$night_inventory <<- setNames(lapply(REGIONS, function(reg) {
-    g <- base_inv %>% filter(region == reg); comp <- g %>% filter(coalesce(n_era5_bins == 24, FALSE))
-    list(n_complete = sum(coalesce(g$n_era5_bins == 24, FALSE) & g$meets_network), n_selected = sum(g$selected),
+    g <- base_inv %>% filter(region == reg); comp <- g %>% filter(coalesce(n_era5_bins == NIGHT_BINS, FALSE))
+    list(n_complete = sum(coalesce(g$n_era5_bins == NIGHT_BINS, FALSE) & g$meets_network), n_selected = sum(g$selected),
          n_meets_weather = sum(g$meets_weather),
          excluded_network = I(g$night_date[g$meets_weather & !g$meets_network]),
-         excluded_partial = I(g$night_date[coalesce(g$n_era5_bins < 24, FALSE) & coalesce(g$frac_calm_clear >= 0.75, FALSE)]),
+         excluded_partial = I(g$night_date[coalesce(g$n_era5_bins < NIGHT_BINS, FALSE) & coalesce(g$frac_calm_clear >= MIN_FRAC_STEPS, FALSE)]),
          frac_calm_only = mean(comp$frac_calm >= 0.75), frac_clear_only = mean(comp$frac_clear >= 0.75))
   }), REGIONS)
 }
@@ -435,7 +438,7 @@ step12_blups_cv <- function(d, m_full, sds) {
   sites <- d %>% distinct(sensor_id, .keep_all = TRUE)
   b <- tibble(sensor_id = rownames(re), blup = re[, 1], blup_sd = sqrt(pv)) %>%
     inner_join(sites %>% select(sensor_id, region, latitude, longitude, all_of(paste0(PRED, "_z"))), by = "sensor_id") %>%
-    mutate(fixed_pred = unname(fe["(Intercept)"]) + ifelse(region == "Honolulu", unname(fe["regionHonolulu"]), 0) +
+    mutate(fixed_pred = unname(fe["(Intercept)"]) + ifelse(region == REGIONS[1], unname(fe[REGION_TERM]), 0) +
              as.numeric(as.matrix(across(all_of(paste0(PRED, "_z")))) %*% fe[paste0(PRED, "_z")])) %>%
     inner_join(d %>% group_by(sensor_id) %>% summarise(dT_site = mean(dT_night)), by = "sensor_id") %>%
     mutate(region = as.character(region)) %>%
@@ -503,7 +506,7 @@ step12_blups_cv <- function(d, m_full, sds) {
 # ---- step 13: shared nights (absolute temperatures) ----------------------------------------------------
 step13_shared_nights <- function() {
   hh <- read_csv(file.path(PROC, "halfhourly_calm_clear.csv"), col_types = cols(datetime = col_character(), time_bin = col_character(), night_date = col_character(), .default = col_guess()))
-  shared <- sort(intersect(unique(hh$night_date[hh$region == "Honolulu"]), unique(hh$night_date[hh$region == "Ewa"])))
+  shared <- sort(intersect(unique(hh$night_date[hh$region == REGIONS[1]]), unique(hh$night_date[hh$region == REGIONS[2]])))
   t <- bind_rows(lapply(shared, function(nd) bind_rows(lapply(REGIONS, function(reg) {
     g <- hh %>% filter(region == reg, night_date == nd, is_night)
     med <- g %>% group_by(time_bin) %>% summarise(m = first(network_median_temp))
@@ -514,8 +517,8 @@ step13_shared_nights <- function() {
   }))))
   write_table(t, "shared_nights")
   RES$shared_nights <<- list(nights = I(shared), rows = pred_rows(t),
-                             median_gap = sapply(shared, function(nd) t$T_median_night[t$night_date == nd & t$region == "Honolulu"] -
-                                                                       t$T_median_night[t$night_date == nd & t$region == "Ewa"]))
+                             median_gap = sapply(shared, function(nd) t$T_median_night[t$night_date == nd & t$region == REGIONS[1]] -
+                                                                       t$T_median_night[t$night_date == nd & t$region == REGIONS[2]]))
   prof <- bind_rows(lapply(shared, function(nd) bind_rows(lapply(REGIONS, function(reg)
     hh %>% filter(region == reg, night_date == nd) %>% group_by(hour_dec) %>%
       summarise(network_median_temp = first(network_median_temp), .groups = "drop") %>% mutate(region = reg, night_date = nd)))))

@@ -17,6 +17,11 @@ repository by a single command.
 **Project page:** https://justinkellum-ship-it.github.io/JustinKellumThesis/ (thesis, figures,
 and the step-by-step walkthrough of the analysis)
 
+**Using the pipeline on your own logger network:** `AGENTS.md` is written for an AI coding
+agent (Claude Code, Codex, Gemini and the like) and its operator: the questions to settle first
+(logging interval, time zone, districts, data sources), the configuration block in
+`analysis/helpers.R` that they map to, the run order and the checks at each step.
+
 ## Layout
 
 ```

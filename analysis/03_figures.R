@@ -63,7 +63,7 @@ figT01_study_area <- function() {
   ib <- st_bbox(island)
   bounds <- bounds4(ib$xmin - 1500, ib$ymin - 1500, ib$xmax + 9000, ib$ymax + 1500)
   imp_all <- raster_df(tint_raster("impervious", 1, bounds, 20, "island"))
-  can_all <- raster_df(tint_raster("canopy", 1, bounds, 20, "island"))
+  can_all <- raster_df(tint_raster("tree", 1, bounds, 20, "island"))
   imp <- imp_all %>% filter(v > 0.01); can <- can_all %>% filter(v > 0.01)     # drop empty cells (sea, bare land) to save memory
   roads <- tryCatch(st_transform(st_read(file.path(EXT, "ne_10m_roads_oahu.geojson"), quiet = TRUE), CRS_M), error = function(e) NULL)
   boxes <- bind_rows(lapply(names(EQB), function(r) tibble(region = r, xmin = EQB[[r]]["xmin"], xmax = EQB[[r]]["xmax"],

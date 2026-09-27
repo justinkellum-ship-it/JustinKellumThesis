@@ -23,8 +23,15 @@
   .f <- sub("^--file=", "", grep("^--file=", commandArgs(FALSE), value = TRUE)); if (length(.f)) dirname(.f[1]) else "." }
 source(file.path(.here, "helpers.R"), encoding = "UTF-8")
 
-EXPORTS <- c(Honolulu = file.path(RAW, "exports", "honolulu_export.csv"),
-             Ewa      = file.path(RAW, "exports", "ewa_export.csv"))
+# one export table per district, named <district>_export.csv (the district names are those of
+# data/raw/sites.csv, matched without regard to case)
+EXPORTS <- local({
+  files <- list.files(file.path(RAW, "exports"), pattern = "_export\\.csv$", full.names = TRUE)
+  stem <- tolower(sub("_export\\.csv$", "", basename(files)))
+  names(files) <- REGIONS[match(stem, tolower(REGIONS))]
+  stopifnot("an export table does not match a district in sites.csv" = !anyNA(names(files)), length(files) > 0)
+  files[order(match(names(files), REGIONS))]
+})
 
 read_export <- function(region, path) {
   x <- read_csv(path, col_types = cols(.default = col_character()), na = character(), show_col_types = FALSE)

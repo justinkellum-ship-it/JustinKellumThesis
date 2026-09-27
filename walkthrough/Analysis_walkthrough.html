@@ -4501,13 +4501,11 @@ rather than recomputing it, and demonstrates the machinery on one
 site:</p>
 <pre class="r"><code>source(file.path(root, &quot;analysis&quot;, &quot;01_site_predictors.R&quot;), encoding = &quot;UTF-8&quot;)       # function definitions only
 sites &lt;- read_csv(file.path(PROC, &quot;sensor_nights.csv&quot;), show_col_types = FALSE) %&gt;% distinct(sensor_id, .keep_all = TRUE)   # coordinates come with the stored table
-pts &lt;- st_transform(st_as_sf(sites, coords = c(&quot;longitude&quot;, &quot;latitude&quot;), crs = 4326, remove = FALSE), 6634)
+pts &lt;- st_transform(st_as_sf(sites, coords = c(&quot;longitude&quot;, &quot;latitude&quot;), crs = 4326, remove = FALSE), CRS_M)
 p1 &lt;- pts[pts$sensor_id == &quot;HNL50&quot;, ]                                          # the compact high-rise site of Waikīkī
 circle &lt;- st_buffer(st_geometry(p1), 100, nQuadSegs = 16)
-bldg &lt;- st_read(file.path(EXT, &quot;buildings_oahu.gpkg&quot;), quiet = TRUE,
-                wkt_filter = st_as_text(st_transform(st_buffer(st_geometry(p1), 300), 32604))) %&gt;% st_transform(6634) %&gt;%
-  mutate(height_m = pmin(pmax(coalesce(height_m, 5), 0.5), 60))
-imp &lt;- raster_fraction(ccap_mask(&quot;impervious&quot;), circle, 1)
+bldg &lt;- buildings_near(st_geometry(p1), 300)                                 # footprints within 300 m, heights filled as in the script
+imp &lt;- raster_fraction(ccap_mask(&quot;impervious&quot;), circle, LANDCOVER$impervious$value)
 bm  &lt;- building_metrics(circle, bldg)
 svf &lt;- sky_view_factor(st_geometry(p1), bldg)
 cat(sprintf(&quot;HNL50 at 100 m: impervious %.1f %% of %d pixels; footprint %.1f %%; mean height %.1f m; H/W %.2f; SVF at the sensor %.2f\n&quot;,

@@ -24,9 +24,9 @@
 #   3. Night.  18:00-06:00 HST; a diurnal date runs 06:00-06:00 and is labelled by
 #      the date of its first 06:00.
 #   4. Calm & clear night.  ERA5 10 m wind < 10 km/h AND total cloud cover < 25 %
-#      in at least 75 % of the 24 night bins; all 24 ERA5 bins must exist.
+#      in at least 75 % of the night bins (24 at 30 min); all ERA5 night bins must exist.
 #   5. Network completeness.  A night is analysed only if >= 20 loggers reported.
-#   6. Sensor-night completeness.  A sensor-night needs >= 18 of its 24 bins.
+#   6. Sensor-night completeness.  A sensor-night needs >= 75 % of its night bins (18 of 24).
 #
 # Packages: dplyr/tidyr (grouped summaries and joins), lubridate (round_date),
 #           readr (fast CSV input/output).
@@ -40,7 +40,7 @@ source(file.path(.here, "helpers.R"), encoding = "UTF-8")
 load_binned <- function() {
   hh <- read_csv(file.path(RAW, "logger_readings.csv"), col_types = cols(datetime = col_character(), .default = col_guess())) %>%
     mutate(datetime = read_stamps(datetime),
-           time_bin = round_date(datetime, "30 minutes"),
+           time_bin = round_date(datetime, sprintf("%d minutes", BIN_MINUTES)),
            hour_dec = hour(time_bin) + minute(time_bin) / 60,
            night_date = format(time_bin - hours(NIGHT_END), "%Y-%m-%d"),
            is_night = hour_dec >= NIGHT_START | hour_dec < NIGHT_END,
@@ -55,17 +55,23 @@ load_binned <- function() {
   hh <- hh %>% inner_join(med, by = c("region", "time_bin")) %>%
     mutate(dT_network = temp_c - network_median_temp)
 
-  # ERA5 hourly values were attached to the logger time stamps by nearest hour,
-  # the half-hour stamp being assigned to the following hour (a :31 reading
-  # carries the value of the next full hour).  The bin value is the one carried
-  # by the :01 / :31 stamps of the main logger group.
+  # The weather series (columns datetime, wind, cloud, region) is put on the same grid.
+  # In this study the ERA5 hourly values had been attached to the logger time stamps by
+  # nearest hour, a half-hour stamp taking the value of the following hour, so the series
+  # already has a row per bin; the bin value is the one carried by the :01/:31 stamps of
+  # the main logger group.  A plain hourly series is completed to the bin grid, each
+  # missing bin taking the value of the following hour (the same convention).
   era <- read_csv(file.path(EXT, "era5_hourly_series.csv"), col_types = cols(datetime = col_character(), .default = col_guess())) %>%
     mutate(datetime = read_stamps(datetime),
-           time_bin = round_date(datetime, "30 minutes"),
-           pref = as.integer(minute(datetime) %% 30 != 1)) %>%          # :01/:31 rows first
+           time_bin = round_date(datetime, sprintf("%d minutes", BIN_MINUTES)),
+           pref = as.integer(minute(datetime) %% BIN_MINUTES != 1)) %>%  # the main logger cadence (:01/:31) first
     arrange(region, time_bin, pref) %>%
     distinct(region, time_bin, .keep_all = TRUE) %>%
-    transmute(region, time_bin, era5_wind_speed_kmh = wind, era5_cloud_cover_pct = cloud)
+    transmute(region, time_bin, era5_wind_speed_kmh = wind, era5_cloud_cover_pct = cloud) %>%
+    group_by(region) %>%
+    complete(time_bin = seq(min(time_bin), max(time_bin), by = sprintf("%d min", BIN_MINUTES))) %>%
+    fill(era5_wind_speed_kmh, era5_cloud_cover_pct, .direction = "updown") %>%
+    ungroup()
   hh <- hh %>% left_join(era, by = c("region", "time_bin"))
   list(hh = hh, era = era)
 }
@@ -89,12 +95,12 @@ night_inventory <- function(hh, era, wind_max = WIND_MAX_KMH, cloud_max = CLOUD_
               T_median_night = mean(network_median_temp), .groups = "drop")
   inv <- full_join(inv, sens, by = c("region", "night_date")) %>%
     mutate(n_sensors = coalesce(n_sensors, 0L),
-           meets_weather = coalesce(frac_calm_clear >= min_frac & n_era5_bins == 24, FALSE),
+           meets_weather = coalesce(frac_calm_clear >= min_frac & n_era5_bins == NIGHT_BINS, FALSE),
            meets_network = n_sensors >= min_sensors,
            selected = meets_weather & meets_network,
            decision = case_when(
              selected ~ "selected",
-             !meets_weather & coalesce(n_era5_bins < 24, FALSE) ~ "partial night (deployment/retrieval)",
+             !meets_weather & coalesce(n_era5_bins < NIGHT_BINS, FALSE) ~ "partial night (deployment/retrieval)",
              !meets_weather ~ "not calm and clear",
              TRUE ~ sprintf("fewer than %d sensors reporting", min_sensors))) %>%
     arrange(region, night_date)

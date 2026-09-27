@@ -183,7 +183,7 @@
     {
       "scope": "pooled",
       "variable": "bldg",
-      "vif_with_elevation": 4.36180379952777
+      "vif_with_elevation": 4.36180379952778
     },
     {
       "scope": "pooled",
@@ -203,12 +203,12 @@
     {
       "scope": "pooled",
       "variable": "aspect",
-      "vif_with_elevation": 4.10550406374889
+      "vif_with_elevation": 4.1055040637489
     },
     {
       "scope": "pooled",
       "variable": "coast_km",
-      "vif_with_elevation": 2.25930827173988
+      "vif_with_elevation": 2.25930827173989
     },
     {
       "scope": "pooled",
@@ -273,7 +273,7 @@
     {
       "scope": "Ewa",
       "variable": "bldg",
-      "vif_with_elevation": 5.87097020713807
+      "vif_with_elevation": 5.87097020713809
     },
     {
       "scope": "Ewa",
@@ -293,17 +293,17 @@
     {
       "scope": "Ewa",
       "variable": "aspect",
-      "vif_with_elevation": 3.40548122286251
+      "vif_with_elevation": 3.40548122286252
     },
     {
       "scope": "Ewa",
       "variable": "coast_km",
-      "vif_with_elevation": 2.07883269995601
+      "vif_with_elevation": 2.07883269995602
     },
     {
       "scope": "Ewa",
       "variable": "elev_m",
-      "vif_with_elevation": 1.68098012323967
+      "vif_with_elevation": 1.68098012323968
     }
   ],
   "sites": [

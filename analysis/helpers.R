@@ -53,17 +53,41 @@ FIG  <- file.path(OUT, "figures")
 PY   <- file.path(ROOT, "replication", "results")   # the independent Python implementation writes here
 for (d in c(PROC, DER, TAB, FIG)) dir.create(d, recursive = TRUE, showWarnings = FALSE)
 
-# ---- study constants --------------------------------------------------------
-NIGHT_START <- 18        # local hour at which a night begins (HST)
+# ---- study configuration ----------------------------------------------------
+# Everything that ties the pipeline to this particular network is set here (see
+# AGENTS.md for how to set it for another one).  The scripts read these values;
+# none of them repeats a number that lives here.
+BIN_MINUTES <- 30        # logging interval: every reading is snapped to this grid (15, 30, 60 ...)
+NIGHT_START <- 18        # local hour at which a night begins (HST; local standard time, no DST)
 NIGHT_END   <- 6         # local hour at which it ends; a diurnal date runs 06:00-06:00
-WIND_MAX_KMH  <- 10      # ERA5 10 m wind speed threshold for a "calm" step
-CLOUD_MAX_PCT <- 25      # ERA5 total cloud cover threshold for a "clear" step
-MIN_FRAC_STEPS <- 0.75   # share of the 24 night bins that must be calm AND clear
+NIGHT_HOURS <- (NIGHT_END - NIGHT_START) %% 24              # 12
+NIGHT_BINS  <- as.integer(NIGHT_HOURS * 60 / BIN_MINUTES)    # 24 bins at 30 min
+WIND_MAX_KMH  <- 10      # ERA5 10 m wind speed threshold for a "calm" bin
+CLOUD_MAX_PCT <- 25      # ERA5 total cloud cover threshold for a "clear" bin
+MIN_FRAC_STEPS <- 0.75   # share of the night bins that must be calm AND clear
 MIN_SENSORS_PER_NIGHT <- 20      # network completeness for a usable reference
-MIN_STEPS_PER_SENSOR_NIGHT <- 18 # sensor-night completeness (of 24 bins)
+MIN_FRAC_SENSOR_NIGHT <- 0.75    # sensor-night completeness: share of the night bins present ...
+MIN_STEPS_PER_SENSOR_NIGHT <- as.integer(round(MIN_FRAC_SENSOR_NIGHT * NIGHT_BINS))   # ... 18 of 24 bins
 
-REGIONS <- c("Honolulu", "Ewa")
-RADII   <- c(50, 100, 200)
+# the districts, in the order they are reported: read from the site table when it exists
+REGIONS <- if (file.exists(file.path(RAW, "sites.csv"))) {
+  unique(readr::read_csv(file.path(RAW, "sites.csv"), show_col_types = FALSE, col_types = readr::cols(.default = "c"))$region)
+} else c("Honolulu", "Ewa")
+RADII   <- c(50, 100, 200)      # source-area radii (m); 02_models.R adopts one of them by AIC
+
+# geospatial inputs (data/external): a projected CRS in metres, the land-cover class
+# rasters (one set of tiles per class, matched by a pattern in the file name, with the
+# pixel value that marks the class), the building footprints (a layer with a height_m
+# column; buildings without a height get HEIGHT_FILL_M) and the coastline polygon
+CRS_M <- 6634                    # NAD83(PA11) / UTM zone 4N: the projection of the C-CAP tiles
+LANDCOVER_DIR <- "ccap"
+LANDCOVER <- list(impervious = list(pattern = "impervious", value = 1),
+                  tree       = list(pattern = "canopy",     value = 1),   # C-CAP canopy mask: 1 = tree, 2 = shrub
+                  water      = list(pattern = "water",      value = 1))
+BUILDINGS_FILE <- "buildings_oahu.gpkg"
+HEIGHT_FILL_M  <- 5              # height given to footprints without a recorded height
+HEIGHT_RANGE_M <- c(0.5, 60)     # heights are clipped to this range
+COAST_FILE     <- "oahu_gshhs_f.geojson"
 PRED    <- c("imperv", "tree", "bldg", "water", "height", "svf_point", "aspect", "coast_km")
 LABEL   <- c(imperv = "Impervious surface fraction (%)", tree = "Tree canopy fraction (%)",
              bldg = "Building footprint fraction (%)", water = "Water surface fraction (%)",

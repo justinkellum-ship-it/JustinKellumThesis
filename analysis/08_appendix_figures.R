@@ -34,7 +34,7 @@ figB1_landcover <- function() {
   # Purpose: document the island and domain land-cover figures of Section 1.2.
   ib <- st_bbox(island); bT01 <- bounds4(ib$xmin - 1500, ib$ymin - 1500, ib$xmax + 9000, ib$ymax + 1500)   # box of the cached masks (T01)
   bI <- bounds4(ib$xmin - 1500, ib$ymin - 1500, ib$xmax + 1500, ib$ymax + 1500)
-  isl <- list(impervious = tint_raster("impervious", 1, bT01, 20, "island"), canopy = tint_raster("canopy", 1, bT01, 20, "island"))
+  isl <- list(impervious = tint_raster("impervious", 1, bT01, 20, "island"), canopy = tint_raster("tree", 1, bT01, 20, "island"))
   isl <- lapply(isl, function(r) aggregate(r, fact = 3, fun = "mean"))                # 60 m cells for drawing
   boxes <- bind_rows(lapply(names(EQB), function(r) tibble(region = r, xmin = EQB[[r]]["xmin"], xmax = EQB[[r]]["xmax"],
                                                            ymin = EQB[[r]]["ymin"], ymax = EQB[[r]]["ymax"])))
@@ -54,7 +54,7 @@ figB1_landcover <- function() {
   }
   dom <- lapply(names(EQB), function(r) list(
     impervious = aggregate(tint_raster("impervious", 1, EQB[[r]], 4, r), fact = 3, fun = "mean"),
-    canopy = aggregate(tint_raster("canopy", 1, EQB[[r]], 4, r), fact = 3, fun = "mean")))
+    canopy = aggregate(tint_raster("tree", 1, EQB[[r]], 4, r), fact = 3, fun = "mean")))
   names(dom) <- names(EQB)
   can_km2 <- function(r) LC[[paste0(r, "_canopy_pct_of_land")]] * LC[[paste0(r, "_domain_land_km2")]] / 100
   pA <- panel(isl$impervious, "impervious", bI, sprintf("(a) Oʻahu, impervious surface: %skm², %.1f%% of the land", fmt_km2(LC$impervious_km2), LC$impervious_pct), TRUE)
