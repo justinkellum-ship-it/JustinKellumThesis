@@ -1,0 +1,15 @@
+{
+  "oahu_land_km2": 1571.43563558145,
+  "impervious_km2": 197.282852019122,
+  "impervious_pct": 12.5543068740531,
+  "canopy_km2": 731.461886099274,
+  "canopy_pct": 46.5473653223235,
+  "Honolulu_domain_land_km2": 52.1192483200306,
+  "Honolulu_impervious_km2": 27.6669560116166,
+  "Honolulu_impervious_pct_of_land": 53.083950562241,
+  "Honolulu_canopy_pct_of_land": 20.1154685401579,
+  "Ewa_domain_land_km2": 88.9326987376608,
+  "Ewa_impervious_km2": 24.2394269997807,
+  "Ewa_impervious_pct_of_land": 27.2559219992679,
+  "Ewa_canopy_pct_of_land": 10.4146631466499
+}

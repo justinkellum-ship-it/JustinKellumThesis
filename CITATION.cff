@@ -1,0 +1,31 @@
+cff-version: 1.2.0
+message: "If you use this code or data, please cite the thesis."
+title: "Nocturnal heat in leeward coastal Oʻahu: sensor network, data and analysis"
+type: dataset
+authors:
+  - family-names: Kellum
+    given-names: Justin
+    affiliation: "Department of Geography and Environment, University of Hawaiʻi at Mānoa"
+date-released: "2026-09-27"
+version: "2026.09"
+license: MIT
+repository-code: "https://github.com/justinkellum-ship-it/JustinKellumThesis"
+url: "https://justinkellum-ship-it.github.io/JustinKellumThesis/"
+keywords:
+  - urban heat island
+  - canopy-layer air temperature
+  - urban form
+  - low-cost sensor network
+  - mixed-effects models
+  - Honolulu
+  - Oʻahu
+preferred-citation:
+  type: thesis
+  title: "Island Urban Climatology: Measuring and Modeling Nocturnal Heat in Leeward Coastal Oʻahu, Hawaiʻi"
+  authors:
+    - family-names: Kellum
+      given-names: Justin
+  institution:
+    name: "University of Hawaiʻi at Mānoa"
+  thesis-type: "M.A. thesis"
+  year: 2026

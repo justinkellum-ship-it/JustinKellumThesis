@@ -1,0 +1,511 @@
+---
+title: "Island Urban Climatology: the analysis, step by step"
+subtitle: "From the logger readings to every number in the thesis: each processing rule, each model, each check, and the package that does it"
+author: "Justin Kellum, Department of Geography and Environment, University of Hawaiʻi at Mānoa"
+date: "`r format(Sys.Date(), '%d %B %Y')`"
+output:
+  html_document:
+    toc: true
+    toc_depth: 3
+    toc_float: true
+    number_sections: true
+    code_folding: show
+    theme: flatly
+    self_contained: true
+    df_print: paged
+  pdf_document:
+    toc: true
+    toc_depth: 2
+    number_sections: true
+    latex_engine: xelatex
+mainfont: "DejaVu Serif"
+monofont: "DejaVu Sans Mono"
+geometry: margin=2.2cm
+always_allow_html: true
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE, comment = "#>", fig.width = 7.2, fig.height = 4, dpi = 150)
+# the project root is the folder that holds analysis/, data/ and results/ (this file lives in walkthrough/)
+root <- normalizePath(file.path(dirname(knitr::current_input(dir = TRUE)), ".."))
+Sys.setenv(THESIS_ROOT = root, PROJ_NETWORK = "OFF")
+knitr::opts_knit$set(root.dir = root)
+# tables: styled HTML when knitting to HTML, plain kable otherwise
+tab <- function(df, caption = NULL) {
+  if (knitr::is_html_output()) kableExtra::kbl(df, caption = caption) %>% kableExtra::kable_styling(font_size = 12, full_width = TRUE)
+  else knitr::kable(df, caption = caption)
+}
+```
+
+# What this document is
+
+The thesis *Island Urban Climatology: Measuring and Modeling Nocturnal Heat in Leeward Coastal Oʻahu, Hawaiʻi* asks which properties of the urban surface explain where night air is warmer or cooler than the rest of a district, using 74 logger sites in Honolulu and ʻEwa on calm, clear nights. Every number, table and figure in it is produced from the files in `data/raw/` by the scripts in `analysis/`, in this order:
+
+| Script | What it does | Runtime |
+|---|---|---|
+| `00_prepare_inputs.R` | reads the logger readings, snaps the loggers' clocks to 30-minute bins, computes the district network median, joins the ERA5 wind and cloud series, classifies every night, and writes the sensor-night table that all models use | seconds |
+| `01_site_predictors.R` | computes the eight urban-form descriptors of every site at 50, 100 and 200 m from the C-CAP 1 m land-cover masks, the FEMA building footprints (including a ray-cast sky view factor) and the GSHHG shoreline | ~7 min |
+| `02_models.R` | fits every mixed-effects model of the thesis (scale selection, null models, single descriptors, full and district models, best subsets, interactions, night effect, threshold sensitivity, cross-validation, site effects, shared nights) and writes `results/thesis_results.json` and the CSV tables | ~1 min |
+| `03_figures.R` | draws 19 of the 22 main-text figures (all but the two photographs and the terrain figure) with ggplot2 and sf/terra | ~10 min |
+| `04_replication_check.R` | compares the R results with the independent Python implementation in `replication/` (Section 9) | seconds |
+| `05_thesis_tables.R` | turns the results into the 22 tables of the thesis, in Markdown, exactly as they appear in the document | seconds |
+| `06_elevation_check.R` | the terrain check (thesis Section 4.8): adds the USGS 3DEP elevation of each site to the models, re-runs the best-subset search and the cross-validation with it, and draws Figure 19 | ~1 min |
+| `07_sensitivity_checks.R` | three site-level checks (thesis Sections 4.8 and 5.4): the models without the warmest site, with a different height for the buildings whose height the inventory does not record, and with the sky view factor of positions inside footprints recomputed | ~7 min |
+| `08_appendix_figures.R` | the land-cover and terrain maps and the sky view factor diagram of Appendix B | ~1 min |
+
+`run_all.R` runs them in order (about 30 minutes). This document walks through the chain in the same order, shows the code that does each step, runs the fast parts live, and states which package does what and why it was chosen. It is written so that a reader who knows R but has not seen the project can follow, and rerun, every decision.
+
+```{r source-scripts}
+source(file.path(root, "analysis", "helpers.R"), encoding = "UTF-8")             # paths, constants, small utilities
+source(file.path(root, "analysis", "00_prepare_inputs.R"), encoding = "UTF-8")   # defines load_binned(), night_inventory(), sensor_nights()
+suppressPackageStartupMessages({ library(lme4); library(lmerTest); library(performance); library(car); library(sf); library(terra); library(ggplot2); library(kableExtra) })
+```
+
+## The packages, and what each one does here
+
+```{r packages, echo = FALSE}
+pk <- tribble(~Package, ~Role, ~`Functions used`, ~Reference,
+  "base R 4.3", "the language; all arithmetic, `median()`, `cor()`, `lm()` for the stepwise check, `wilcox.test()`, `cor.test()`", "", "R Core Team (2024)",
+  "dplyr, tidyr, tibble, purrr", "grouped summaries, joins and reshaping of the record (one row per logger and bin → one row per sensor-night)", "`group_by()`, `summarise()`, `inner_join()`, `pivot_wider()`", "Wickham et al. (2019)",
+  "readr", "fast, typed CSV input and output", "`read_csv()`, `write_csv()`", "Wickham et al. (2019)",
+  "lubridate", "rounding of the loggers' time stamps to the nearest 30 minutes", "`round_date()`, `ymd_hms()`", "Grolemund & Wickham (2011)",
+  "jsonlite", "the results file that the tables and figures read", "`write_json()`, `fromJSON()`", "Ooms (2014)",
+  "sf", "vector geometry: projecting the sites, buffering, intersecting footprints with circles, ray casting, distance to the shoreline", "`st_transform()`, `st_buffer()`, `st_intersects()`, `st_intersection()`, `st_distance()`", "Pebesma (2018)",
+  "terra", "raster access: the 1 m C-CAP masks as virtual mosaics, pixel extraction inside circles, aggregation for the base maps", "`vrt()`, `extract()`, `crop()`, `aggregate()`", "Hijmans (2024)",
+  "lme4", "the mixed-effects models: random intercept per site, REML and ML fits", "`lmer()`, `fixef()`, `ranef()`, `VarCorr()`, `logLik()`, `AIC()`, `predict()`", "Bates et al. (2015)",
+  "lmerTest", "Satterthwaite degrees of freedom and t tests for the coefficients", "`lmer()` (wrapper), `summary()`", "Kuznetsova et al. (2017)",
+  "performance", "marginal and conditional R² (Nakagawa) and ICC, as a check on the manual formulas", "`r2_nakagawa()`, `icc()`", "Lüdecke et al. (2021)",
+  "car", "variance inflation factors of the predictors", "`vif()`", "Fox & Weisberg (2019)",
+  "ggplot2, patchwork, scales, cowplot", "all figures; multi-panel layout; colour scales; legend extraction", "`ggplot()`, `geom_sf()`, `geom_raster()`, `wrap_plots()`", "Wickham (2016); Pedersen (2024)",
+  "rmarkdown, knitr, kableExtra", "this document", "`render()`, `kable()`", "Xie et al. (2018)")
+tab(pk)
+```
+
+Why these and not others: `lme4` is the reference implementation of linear mixed models in R; `lmerTest` adds the Satterthwaite approximation that `lme4` deliberately omits, so that each coefficient has a defensible p-value; `sf` and `terra` are the current standard vector and raster packages (the older `sp`/`rgdal`/`raster` stack was retired in 2023); `performance` is used only to confirm that the R² and ICC computed by hand from `VarCorr()` are right. The whole chain is base R plus these packages, with no compiled code of our own and nothing hidden. `results/sessionInfo.txt` records the exact versions of the run that produced the thesis.
+
+# Step 1: from logger readings to sensor-nights (`00_prepare_inputs.R`)
+
+## What comes in
+
+Three files in `data/raw/` and `data/external/`. The logger readings are the study's own measurement: one row per logger and time stamp, as downloaded from the 74 recovered iButton loggers (no reading has been altered or removed). The sites file gives each logger's district, position and the setting recorded at deployment. The ERA5 series gives the hourly 10 m wind speed and total cloud cover of the reanalysis grid point nearest each district, retrieved from the Open-Meteo historical-weather interface for the whole deployment period.
+
+```{r inputs}
+hh_raw  <- read_csv(file.path(RAW, "logger_readings.csv"), col_types = cols(datetime = col_character(), .default = col_guess()))
+sites   <- read_csv(file.path(RAW, "sites.csv"), show_col_types = FALSE)
+era_raw <- read_csv(file.path(EXT, "era5_hourly_series.csv"), col_types = cols(datetime = col_character(), .default = col_guess()))
+cat(nrow(hh_raw), "readings from", n_distinct(hh_raw$sensor_id), "loggers;", nrow(sites), "sites;", nrow(era_raw), "ERA5 rows\n")
+head(hh_raw, 3)
+sites %>% count(region, setting) %>% tab(caption = "The logger sites by district and recorded setting")
+```
+
+Every logger reports every 30 minutes, but the loggers were started by hand, so their clocks differ by up to two minutes:
+
+```{r stamps}
+table(minute(read_stamps(hh_raw$datetime)))
+```
+
+This matters for the reference. A median taken over the loggers that share an exact minute stamp would compare the loggers on a :02/:32 cadence (five in Honolulu, four in ʻEwa) with four or five loggers instead of the district network, and one logger (HNL47, alone on :00/:30) with itself. The first processing rule removes the problem.
+
+## Rule 1: snap every reading to the nearest 30-minute bin
+
+```{r binning, eval = FALSE}
+hh <- hh_raw %>%
+  mutate(datetime = read_stamps(datetime),                       # parsed as clock time, no time-zone shift
+         time_bin = round_date(datetime, "30 minutes"),          # lubridate: :01 -> :00, :31 -> :30, :02 -> :00 ...
+         hour_dec = hour(time_bin) + minute(time_bin) / 60,
+         night_date = format(time_bin - hours(NIGHT_END), "%Y-%m-%d"),   # a diurnal date runs 06:00 -> 06:00
+         is_night = hour_dec >= NIGHT_START | hour_dec < NIGHT_END)      # 18:00 -> 06:00 HST
+```
+
+`round_date()` puts all loggers of a district on the same 30-minute grid; because no stamp ever falls exactly on the quarter-hour, rounding is unambiguous. A diurnal date starts at 06:00 so that a whole night (18:00–06:00) belongs to one date.
+
+## Rule 2: the district network median, and ΔT
+
+```{r median, eval = FALSE}
+med <- hh %>% group_by(region, time_bin) %>%
+  summarise(network_median_temp = median(temp_c), n_sensors_active = n_distinct(sensor_id), .groups = "drop")
+hh <- hh %>% inner_join(med, by = c("region", "time_bin")) %>% mutate(dT_network = temp_c - network_median_temp)
+```
+
+The response of the whole thesis is `dT_network`: a logger's air temperature minus the median of all loggers of its district in the same bin. The median (not the mean) is used because it is insensitive to a few extreme sites; because every district is centred on its own median, the two districts can only be compared in absolute terms on the nights they share (Section 4.5 below; thesis Section 4.10).
+
+## Rule 3: attach the ERA5 weather
+
+The ERA5 series carries one value per logger stamp, assigned by nearest hour when the series was retrieved. Within each 30-minute bin the script keeps the value carried by the :01/:31 stamps, the cadence of most loggers (the alternatives are identical in every bin that matters):
+
+```{r era, eval = FALSE}
+era <- era_raw %>% mutate(datetime = read_stamps(datetime), time_bin = round_date(datetime, "30 minutes"),
+                          pref = as.integer(minute(datetime) %% 30 != 1)) %>%     # :01/:31 rows first
+  arrange(region, time_bin, pref) %>% distinct(region, time_bin, .keep_all = TRUE) %>%
+  transmute(region, time_bin, era5_wind_speed_kmh = wind, era5_cloud_cover_pct = cloud)
+```
+
+## Rules 4 to 6: which nights, which loggers
+
+```{r rules, echo = FALSE}
+tibble(Rule = c("calm & clear night", "complete ERA5", "network completeness", "sensor-night completeness"),
+       Definition = c("ERA5 10 m wind < 10 km h⁻¹ AND total cloud < 25 % in at least 75 % of the 24 night bins",
+                      "all 24 ERA5 night bins present (partial first/last nights are not classified)",
+                      "at least 20 loggers of the district reporting on the night (a median of a handful of loggers is not a district reference)",
+                      "a sensor-night is kept only if at least 18 of its 24 bins are present"),
+       Constant = c("WIND_MAX_KMH, CLOUD_MAX_PCT, MIN_FRAC_STEPS", "", "MIN_SENSORS_PER_NIGHT", "MIN_STEPS_PER_SENSOR_NIGHT"),
+       Origin = c("study-specific thresholds on the reanalysis; the calm/clear requirement itself follows Oke (1982) and Stewart & Oke (2012)",
+                  "study-specific", "study-specific", "study-specific")) %>% tab()
+```
+
+Every rule is a named constant in `helpers.R`, so the threshold sensitivity of Section 4.2 can vary them. Running the whole step:
+
+```{r run-prep, results = "hold"}
+b <- load_binned(); hh <- b$hh; era <- b$era
+inv <- night_inventory(hh, era)                       # one row per district x diurnal date
+sn  <- sensor_nights(hh, inv)                         # one row per logger x selected night
+inv %>% count(region, decision) %>% pivot_wider(names_from = region, values_from = n, values_fill = 0) %>% tab()
+```
+
+```{r selected-nights}
+inv %>% filter(selected) %>% select(region, night_date, n_sensors, wind_night, cloud_night, frac_calm_clear) %>%
+  mutate(across(where(is.numeric), ~ round(.x, 2))) %>% tab(caption = "The eleven analysed nights")
+sn %>% group_by(region) %>% summarise(sites = n_distinct(sensor_id), nights = n_distinct(night_date), sensor_nights = n()) %>% tab()
+```
+
+The 400 sensor-nights (36 Honolulu sites × 7 nights minus four incomplete sensor-nights; 38 ʻEwa sites × 4 nights) are the unit of analysis. Their night-mean `dT_night` is what the models explain. The step writes `data/processed/night_inventory.csv`, `sensor_nights.csv` and `halfhourly_calm_clear.csv` (the full diurnal cycles that contain an analysed night, used by the figures and the shared-night comparison).
+
+# Step 2: describing each site (`01_site_predictors.R`)
+
+Eight descriptors are computed for a circle of radius 50, 100 and 200 m around each logger, all from public data and all in the projection of the C-CAP tiles (NAD83(PA11) / UTM 4N, EPSG:6634, metres):
+
+```{r predictor-table, echo = FALSE}
+tribble(~Descriptor, ~Source, ~How, ~Package,
+  "impervious, tree-canopy and water fractions (%)", "NOAA C-CAP 2021, 1 m masks", "share of the 1 m pixels whose centre lies inside the circle that carry the class value", "terra: `vrt()` builds one virtual mosaic per mask from the tiles; `extract(touches = FALSE)` returns the pixels inside the polygon",
+  "building footprint fraction (%)", "FEMA / ORNL USA Structures", "area of footprints clipped to the circle ÷ circle area", "sf: `st_intersects()` to find candidates, `st_intersection()` to clip, `st_area()`",
+  "mean building height (m)", "FEMA (height attribute; 5 m where the inventory records none, clipped to 0.5–60 m)", "footprint-area-weighted mean of the clipped footprints", "sf + base",
+  "canyon aspect ratio H/W", "FEMA", "mean height ÷ mean building spacing, spacing = √(circle area / n) − √(mean footprint), W ≥ 6 m, H/W ≤ 5", "base",
+  "sky view factor (point)", "FEMA footprints", "36 rays from the sensor at 1.5 m out to 200 m; along each ray the highest elevation angle β of a footprint; SVF = mean cos²β (Johnson & Watson 1984)", "sf: `st_linestring()`, `st_intersection()`, `st_distance()`",
+  "distance to coast (km)", "GSHHG full-resolution shoreline", "distance from the sensor to the boundary of the island polygon (Pearl Harbor counts as coast)", "sf: `st_union()`, `st_boundary()`, `st_distance()`") %>%
+  tab()
+```
+
+The functions are short enough to read in full. The raster fraction:
+
+```{r fn-raster, eval = FALSE}
+raster_fraction <- function(r, geom, values) {
+  v <- terra::extract(r, vect(geom), touches = FALSE)[[2]]      # every 1 m pixel whose centre is inside the circle
+  n <- length(v)                                                # no-data (0) pixels are read as NA and count towards n
+  list(frac = setNames(vapply(values, function(k) 100 * sum(v == k, na.rm = TRUE) / n, numeric(1)), values), n = n)
+}
+```
+
+The sky view factor, which is the one genuinely three-dimensional descriptor:
+
+```{r fn-svf, eval = FALSE}
+sky_view_factor <- function(pt, bldg, z0 = 1.5, R = 200, n_az = 36) {
+  cand <- bldg[st_intersects(st_buffer(pt, R), bldg)[[1]], ]                     # footprints within the horizon
+  xy <- st_coordinates(pt); total <- 0
+  for (k in seq_len(n_az) - 1) {
+    th <- 2 * pi * k / n_az
+    ray <- st_sfc(st_linestring(rbind(xy, xy + R * c(sin(th), cos(th)))), crs = st_crs(pt))
+    hit <- cand[st_intersects(ray, cand)[[1]], ]; beta <- 0
+    for (j in seq_len(nrow(hit))) {
+      seg <- st_intersection(ray, st_geometry(hit)[j])                          # where the ray enters the footprint
+      d <- max(1, as.numeric(st_distance(pt, seg)))                             # horizontal distance to that wall
+      beta <- max(beta, atan(max(hit$height_m[j] - z0, 0) / d))                 # elevation angle of the wall top
+    }
+    total <- total + cos(beta)^2
+  }
+  total / n_az
+}
+```
+
+The full computation takes about seven minutes (the building layer holds every footprint on Oʻahu), so this document reads the result rather than recomputing it, and demonstrates the machinery on one site:
+
+```{r demo-predictors, cache = TRUE}
+source(file.path(root, "analysis", "01_site_predictors.R"), encoding = "UTF-8")       # function definitions only
+sites <- read_csv(file.path(PROC, "sensor_nights.csv"), show_col_types = FALSE) %>% distinct(sensor_id, .keep_all = TRUE)   # coordinates come with the stored table
+pts <- st_transform(st_as_sf(sites, coords = c("longitude", "latitude"), crs = 4326, remove = FALSE), 6634)
+p1 <- pts[pts$sensor_id == "HNL50", ]                                          # the compact high-rise site of Waikīkī
+circle <- st_buffer(st_geometry(p1), 100, nQuadSegs = 16)
+bldg <- st_read(file.path(EXT, "buildings_oahu.gpkg"), quiet = TRUE,
+                wkt_filter = st_as_text(st_transform(st_buffer(st_geometry(p1), 300), 32604))) %>% st_transform(6634) %>%
+  mutate(height_m = pmin(pmax(coalesce(height_m, 5), 0.5), 60))
+imp <- raster_fraction(ccap_mask("impervious"), circle, 1)
+bm  <- building_metrics(circle, bldg)
+svf <- sky_view_factor(st_geometry(p1), bldg)
+cat(sprintf("HNL50 at 100 m: impervious %.1f %% of %d pixels; footprint %.1f %%; mean height %.1f m; H/W %.2f; SVF at the sensor %.2f\n",
+            imp$frac[["1"]], imp$n, bm$bldg_frac, bm$zH, bm$hw_ratio, svf))
+pred <- read_csv(file.path(DER, "site_predictors_multiscale.csv"), show_col_types = FALSE)
+pred %>% filter(sensor_id == "HNL50") %>% select(radius_m, imperv, tree, bldg, height, aspect, svf_point, coast_km) %>%
+  mutate(across(-radius_m, ~ round(.x, 2))) %>% tab(caption = "The same site in the stored table (all three radii)")
+```
+
+HNL50 is also one of the five recorded positions that fall inside a building footprint, which is why the ray casting returns a sky view factor near zero for it; Section 4.2 recomputes those five values with the position moved outside the footprint and shows that nothing depends on them.
+
+```{r predictor-summary}
+pred %>% filter(radius_m == 100) %>% group_by(region) %>%
+  summarise(across(all_of(PRED), ~ round(mean(.x), 2))) %>% tab(caption = "District means of the eight descriptors at 100 m")
+```
+
+The step writes `data/descriptors/site_predictors_multiscale.csv`: one row per site and radius.
+
+# Step 3: the mixed-effects models (`02_models.R`)
+
+## Why a mixed model, and how it is written in lme4
+
+A site contributes several nights, so its sensor-nights are not independent: whatever makes a site warm on one calm night tends to make it warm on the next. A linear mixed model with a random intercept per site handles this directly. In `lme4` syntax the full pooled model is
+
+```
+dT_night ~ region + imperv_z + tree_z + bldg_z + water_z + height_z + svf_point_z + aspect_z + coast_km_z + (1 | sensor_id)
+```
+
+where `(1 | sensor_id)` is the site random intercept, `region` is the district (ʻEwa as reference level) and the `_z` predictors are the descriptors standardised with the *pooled* mean and SD, so that one coefficient means "°C per one standard deviation" in every model and is comparable between districts. The wrapper used throughout:
+
+```{r fn-fit, eval = FALSE}
+fit_lmm <- function(df, rhs, reml = TRUE) {
+  f <- as.formula(paste0("dT_night ~ ", rhs, " + (1 | sensor_id)"))
+  lmerTest::lmer(f, data = df, REML = reml,
+                 control = lmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 1e5), check.conv.singular = "ignore"))
+}
+```
+
+Two conventions run through every step, following Zuur et al. (2009) and Bates et al. (2015):
+
+* **REML for estimates, ML for tests.** Coefficients, standard errors and variance components are reported from REML fits (unbiased variance components). Models that differ in their fixed effects are compared with likelihood-ratio tests and AIC on ML fits, because REML likelihoods of models with different fixed effects are not comparable.
+* **Satterthwaite p-values for individual coefficients** (`lmerTest`), which account for the fact that a site-level predictor is effectively tested on 74 sites, not 400 sensor-nights.
+
+## The building blocks, run live
+
+```{r load-models}
+source(file.path(root, "analysis", "02_models.R"), encoding = "UTF-8")      # helper functions; main() is not run
+d <- load_radius(100)$d
+z <- zscore_frame(d, PRED); d <- z$df; sds <- z$sds
+```
+
+**Null model and intraclass correlation.** How much of the variance of `dT_night` is between sites rather than between nights within a site?
+
+```{r null}
+m0 <- fit_lmm(d, "1", reml = TRUE)
+VarCorr(m0)
+vc <- var_comp(m0); cat(sprintf("ICC = %.3f / (%.3f + %.3f) = %.2f\n", vc$var_site, vc$var_site, vc$var_resid, vc$var_site / (vc$var_site + vc$var_resid)))
+performance::icc(m0)
+```
+
+**The full pooled model**, as `summary()` prints it:
+
+```{r full}
+m_full <- fit_lmm(d, rhs_full("region"), reml = TRUE)
+summary(m_full)
+```
+
+**Explained variance (Nakagawa & Schielzeth 2013).** R²m is the share of the total variance explained by the fixed effects; R²c adds the site random intercepts:
+
+```{r r2}
+r2 <- r2_nakagawa(m_full); unlist(r2[c("r2m", "r2c", "icc_cond")])
+performance::r2_nakagawa(m_full)
+```
+
+**Likelihood-ratio test** of the eight predictors given district, on ML fits (this is what `anova()` does for two nested `lmer` fits):
+
+```{r lrt}
+m_full_ml <- fit_lmm(d, rhs_full("region"), reml = FALSE)
+m_reg_ml  <- fit_lmm(d, "region", reml = FALSE)
+anova(m_reg_ml, m_full_ml, refit = FALSE)
+```
+
+**Natural units.** A slope per standard deviation is converted back with the pooled SD, e.g. the impervious effect per +10 percentage points:
+
+```{r natural}
+ct <- coef_table(m_full, sds)
+ct %>% filter(term %in% c("imperv_z", "height_z", "coast_km_z")) %>% select(term, estimate, se, df, p, estimate_natural, se_natural, natural_unit) %>%
+  mutate(across(where(is.numeric), ~ signif(.x, 3))) %>% tab()
+```
+
+## The sequence of analyses in `02_models.R`
+
+The script runs thirteen steps; each writes a CSV table to `results/tables/` and a block of `results/thesis_results.json`. What each one does, and the thesis table, figure and section it feeds:
+
+```{r steps, echo = FALSE}
+tribble(~Step, ~What, ~Method, ~Thesis,
+  "1", "descriptives of the predictors by district and radius; district differences", "means, SDs; Mann–Whitney (`wilcox.test`)", "Table 4, §4.1",
+  "2", "scale selection", "full model at 50/100/200 m, pooled and per district, ML AIC; the radius that is best or within 2 AIC in all three (minimax ΔAIC) is adopted; a forward-stepwise OLS on site means (`lm()` + `AIC()`) as a secondary check", "Table 6, Fig. 13, §4.3",
+  "3", "collinearity", "site-level Pearson correlations; VIF from `car::vif()`", "Table 7, Fig. 14, §4.4",
+  "4", "null models", "intercept-only LMMs, REML; ICC", "Table 5, §4.2",
+  "5", "single-predictor models", "one predictor at a time, district-adjusted and per district; LRT vs null (ML), R²m", "Table 8, Fig. 15, §4.5",
+  "6", "full pooled model and parsimonious model", "REML estimates, Satterthwaite p, LRTs; predicted district gap at each district's mean morphology", "Table 9, Fig. 16, §4.6",
+  "7", "district models and best subsets", "full 8-predictor model per district; all 93 subsets of ≤ 3 predictors ranked by ML AIC; Akaike weights and predictor importance", "Tables 10–12, §4.7",
+  "8", "district × predictor interactions", "each interaction added singly to the full model, LRT; joint test of all eight", "Table 13, Fig. 17, §4.7",
+  "9", "night effect and night-to-night stability", "night as fixed effect, LRT; correlation of site ΔT between nights", "Fig. 12, §4.1–4.2",
+  "10", "threshold sensitivity", "night selection re-run from the record under 24 rules; models refitted; complement (windy/cloudy) nights", "Table 15, Fig. 18, §4.8",
+  "11", "model comparison", "ML AIC of OLS, null, district, parsimonious, full and interaction models", "Table 14",
+  "12", "site effects, leave-one-site-out CV, calm-core refit", "`ranef(condVar = TRUE)`; each site predicted from a model fitted without it (`predict(re.form = NA)`); refit on nights with wind < 5 km h⁻¹", "Table 17, Figs 20 & 21, §4.8–4.9",
+  "13", "shared nights", "absolute night-mean medians and percentile bands of both networks on 1 and 21 December", "Table 18, Fig. 22, §4.10") %>%
+  tab()
+```
+
+Three of these deserve a closer look because they are where a reader is most likely to ask "how exactly?".
+
+### Best subsets and Akaike weights (step 7)
+
+Every combination of at most three of the eight predictors (93 models including the null) is fitted by ML within each district and ranked by AIC. The Akaike weight of a model is its relative likelihood, `exp(-ΔAIC/2)` normalised over the set; the *importance* of a predictor is the sum of the weights of the models that contain it. This is exactly what `MuMIn::dredge()` would produce; it is written out here so that nothing is hidden:
+
+```{r subsets, eval = FALSE}
+cands <- c(list(character(0)), unlist(lapply(1:3, function(k) combn(PRED, k, simplify = FALSE)), recursive = FALSE))
+rr <- bind_rows(lapply(cands, function(cc) {
+  rhs <- if (length(cc)) paste(paste0(cc, "_z"), collapse = " + ") else "1"
+  mm <- fit_lmm(g, rhs, reml = FALSE)
+  tibble(predictors = if (length(cc)) paste(cc, collapse = " + ") else "(null)", k = length(cc), aic = AIC(mm))
+})) %>% mutate(delta_aic = aic - min(aic), weight = exp(-0.5 * delta_aic) / sum(exp(-0.5 * delta_aic))) %>% arrange(aic)
+```
+
+```{r subsets-result}
+res <- fromJSON(file.path(OUT, "thesis_results.json"), simplifyVector = TRUE)
+bind_rows(lapply(REGIONS, function(r) as_tibble(res$regional[[r]]$best_subset$top5) %>% mutate(region = r) %>% head(3))) %>%
+  select(region, predictors, k, delta_aic, weight, r2m) %>% mutate(across(where(is.numeric), ~ round(.x, 2))) %>%
+  tab(caption = "The three best subsets per district")
+```
+
+### Threshold sensitivity (step 10)
+
+Because the night-selection thresholds are study-specific choices, the whole selection is re-run from the binned record under a grid of rules (wind 8–20 km h⁻¹, cloud 15–50 %, bin share 60–100 %, and no weather filter at all), and the parsimonious and full pooled models are refitted each time. The only thing that changes between runs is the arguments of `night_inventory()`:
+
+```{r thresholds, eval = FALSE}
+inv <- night_inventory(hh, era, wind_max = w, cloud_max = cc, min_frac = f)
+sn  <- sensor_nights(hh, inv)
+```
+
+```{r thresholds-result}
+as_tibble(res$threshold_sensitivity) %>% filter(min_frac == 0.75 & cloud_max == 25 | wind_max %in% c(999, -1)) %>%
+  select(wind_max, cloud_max, nights_honolulu, nights_ewa, sensor_nights, beta_imperv_z, beta_height_z, r2m_full, corr_with_baseline) %>%
+  mutate(across(where(is.numeric), ~ round(.x, 2))) %>% tab(caption = "Wind threshold varied at cloud < 25 %; 999 = no weather filter, −1 = windy/cloudy nights only")
+```
+
+### Leave-one-site-out cross-validation (step 12)
+
+Each of the 74 sites is held out in turn, the model is refitted on the other sites, and the held-out site's mean ΔT is predicted from the fixed effects alone (`predict(m, newdata, re.form = NA)`), i.e. from its morphology only. This is the honest measure of how well the descriptors would predict a site that was never measured.
+
+```{r loso-result}
+as_tibble(res$loso_cv) %>% select(model, rmse, mae, r, r2_cv) %>% mutate(across(where(is.numeric), ~ round(.x, 2))) %>% tab()
+```
+
+### Absolute comparison on the shared nights (step 13)
+
+Because ΔT is measured from each district's own median, the model terms say nothing about which district is warmer. Step 13 answers that on the two calm, clear nights the deployments share (1 and 21 December 2024) from the half-hourly record itself: the network median and the 10th–90th percentile band of each district through the diurnal cycle (thesis Table 18 and Figure 22).
+
+```{r shared-result}
+read_csv(file.path(TAB, "shared_nights.csv"), show_col_types = FALSE) %>%
+  select(night_date, region, n_sensors, T_median_night, T_p10, T_p90, wind, cloud) %>%
+  mutate(across(where(is.numeric), ~ round(.x, 2))) %>% tab(caption = "Night-mean (18:00–06:00) statistics of the two networks on the shared nights")
+```
+
+# Step 4: the checks (`06_elevation_check.R`, `07_sensitivity_checks.R`)
+
+## Terrain (`06_elevation_check.R`)
+
+In Honolulu the strongest single descriptor is distance to the coast, and the shore-to-valley gradient it describes also runs up-slope, so a reader may ask whether the "coast" effect is really an elevation effect. `06_elevation_check.R` answers that with the same machinery: the bare-earth elevation of each logger position (USGS 3DEP 1 m lidar DEM, read through the USGS Elevation Point Query Service and stored with its source raster id in `data/descriptors/site_elevation.csv`) is z-scored like the other descriptors and added to the models. The decisive comparison, run live, is coast alone against coast plus elevation in Honolulu, with `anova()` giving the likelihood-ratio test on ML fits and `summary()` the Satterthwaite t tests of the REML fit:
+
+```{r elevation-demo}
+el <- read_csv(file.path(DER, "site_elevation.csv"), show_col_types = FALSE) %>% select(sensor_id, elev_m)
+dh <- d %>% inner_join(el, by = "sensor_id") %>% mutate(elev_m_z = (elev_m - mean(elev_m)) / sd(elev_m)) %>%   # pooled z-score, as for the other descriptors
+  filter(region == "Honolulu")
+m_coast  <- fit_lmm(dh, "coast_km_z", reml = FALSE)
+m_both   <- fit_lmm(dh, "coast_km_z + elev_m_z", reml = FALSE)
+m_elev   <- fit_lmm(dh, "elev_m_z", reml = FALSE)
+anova(m_coast, m_both, refit = FALSE)          # does elevation add anything given the coast?
+anova(m_elev,  m_both, refit = FALSE)          # does the coast add anything given elevation?
+summary(fit_lmm(dh, "coast_km_z + elev_m_z", reml = TRUE))$coefficients
+```
+
+Given distance to the coast, elevation adds nothing; given elevation, the coast remains. The script repeats this for the ʻEwa and pooled models, for the best-subset and full models (thesis Table 16), re-runs the exhaustive best-subset search with elevation among the nine candidates, and re-runs the leave-one-site-out cross-validation with and without it:
+
+```{r elevation-result}
+em <- read_csv(file.path(TAB, "elevation_models.csv"), show_col_types = FALSE)
+em %>% filter(scope != "pooled", grepl("elevation|coast only|best subset", model)) %>%
+  select(scope, model, r2m, coast_per_km, coast_p, elev_per_10m, elev_p, lrt_elev_given_model_p, delta_aic_vs_without) %>%
+  mutate(across(where(is.numeric), ~ round(.x, 3))) %>% tab(caption = "District models with and without site elevation (natural units: °C per km, °C per 10 m)")
+ec <- fromJSON(file.path(OUT, "elevation_check.json"), simplifyVector = FALSE)
+cat(sprintf("Best subset with elevation in the pool. Honolulu: %s (elevation importance %.2f); ʻEwa: %s (%.2f)\n",
+            ec$subsets$Honolulu$best, ec$subsets$Honolulu$elevation_importance, ec$subsets$Ewa$best, ec$subsets$Ewa$elevation_importance))
+as_tibble(bind_rows(lapply(ec$loso, as_tibble))) %>% filter(grepl("best subset", model)) %>% mutate(across(where(is.numeric), ~ round(.x, 3))) %>% tab(caption = "Leave-one-site-out skill of the best-subset models with and without elevation")
+```
+
+```{r figure19, echo = FALSE, out.width = "100%"}
+knitr::include_graphics(file.path(FIG, "T20_elevation.png"), rel_path = FALSE)
+```
+
+## Three site-level checks (`07_sensitivity_checks.R`)
+
+The second check script asks whether any conclusion rests on a single site or on a data-quality detail. It refits the models of `02_models.R` (same z-scores, same random-intercept structure, likelihood-ratio tests on ML fits, REML estimates) under three changes and writes `results/sensitivity_checks.json` and `results/tables/sensitivity_*.csv`:
+
+* **A. HNL08.** The warmest Honolulu site is also among the most variable and is not explained by its descriptors; a generator next to the station was likely the source of its extra warmth (thesis Section 5.4). The models are refitted without its seven sensor-nights, and the check reports how far the Honolulu network median moves when the logger is left out of it.
+* **B. Buildings without a recorded height.** About a quarter of the Oʻahu footprints have no height in the USA Structures inventory and carry a 5 m fill value in the footprint file. For each site the share of building area within 100 m that carries the fill value is computed (`data/descriptors/site_default_height_share.csv`); the models are refitted with 3 m instead of 5 m for those buildings (height and canyon aspect ratio recomputed at 100 m) and without the six ʻEwa sites where such buildings make up more than half of the building area.
+* **C. Sensor positions inside footprints.** Five recorded positions fall inside a footprint polygon (a post under an eave or a covered walkway, or a position error of a few metres), so the ray casting sees a wall 1 m away in every direction and returns a sky view factor near zero. Their sky view factor is recomputed with the position moved to 1 m outside the nearest footprint edge (`data/descriptors/site_svf_footprint_check.csv`), and the models are refitted.
+
+```{r sensitivity-result}
+sc <- fromJSON(file.path(OUT, "sensitivity_checks.json"), simplifyVector = FALSE)
+pick <- function(x, what) { cf <- x$pooled_full$coefs; tibble(variant = what, n_sites = x$n_sites, r2m = x$pooled_full$r2m,
+  imperv_per_10pp = cf$imperv$est, imperv_p = cf$imperv$p, height_per_m = cf$height$est, height_p = cf$height$p,
+  coast_per_km = cf$coast_km$est, coast_p = cf$coast_km$p) }
+bind_rows(pick(sc$hnl08$with, "all sites (thesis)"), pick(sc$hnl08$without, "A: without HNL08"),
+          pick(sc$default_heights$fill_3m, "B: 3 m for buildings without a recorded height"),
+          pick(sc$default_heights$without, "B: without the six sites dominated by them"),
+          pick(sc$svf_footprints$corrected, "C: sky view factor recomputed for the five positions")) %>%
+  mutate(across(where(is.numeric), ~ signif(.x, 3))) %>% tab(caption = "The full pooled model under each check (natural units)")
+as_tibble(bind_rows(lapply(sc$svf_footprints$sites, as_tibble))) %>% mutate(across(where(is.numeric), ~ round(.x, 2))) %>%
+  tab(caption = "The five positions inside footprints: sky view factor as recorded and after moving the position 1 m outside the footprint")
+```
+
+None of the three changes alters a conclusion: the impervious and building-height effects keep their signs and significance, the district difference in the coastal effect remains, and the ʻEwa height effect is 0.135 rather than 0.131 °C per metre with 3 m fill heights.
+
+# Step 5: figures and tables (`03_figures.R`, `05_thesis_tables.R`, `08_appendix_figures.R`)
+
+Every figure is a ggplot2 object saved as PNG (300 dpi) and PDF in `results/figures/` (the repository keeps the PDF versions of the statistical figures only; the vector maps run to 10 MB each and are regenerated by the script). The maps are built from the same inputs as the descriptors: `terra` crops each C-CAP mask to the district box and aggregates it to 4 m (`aggregate(fact = 4, fun = "mean")`, cached as GeoTIFF), `sf` supplies the island polygon, the building footprints and the site points, and `ggplot2::coord_sf()` draws the graticule. The observed pattern, as an example (thesis Figure 11):
+
+```{r figure11, echo = FALSE, out.width = "100%"}
+knitr::include_graphics(file.path(FIG, "T16_dT_maps.png"), rel_path = FALSE)
+```
+
+`05_thesis_tables.R` reads `thesis_results.json` and the CSV tables and writes the 22 tables of the thesis as Markdown files in `results/thesis_tables/`, with the captions and the rounding used in the document, so that every printed number can be traced to a line of code. `08_appendix_figures.R` draws the three figures of Appendix B: the island and district land cover from the aggregated C-CAP masks (with the areas quoted in the thesis's Section 1.2, `results/island_landcover.json`), the terrain of Oʻahu and Honolulu from the USGS 10 m DEM (the two subsampled grids in `data/external/`), and the sky view factor diagram for one site, drawn with the same ray casting as `01_site_predictors.R` with the angle of every ray kept.
+
+# Reproducing everything
+
+```
+Rscript analysis/requirements.R     # installs the packages (once)
+Rscript analysis/run_all.R          # ~30 minutes; writes data/processed/, data/descriptors/ and results/
+```
+
+`results/sessionInfo.txt` records the exact package versions of the thesis run:
+
+```{r session}
+cat(readLines(file.path(OUT, "sessionInfo.txt"))[1:12], sep = "\n")
+```
+
+The three large inputs (the C-CAP tiles, the FEMA footprints and the GSHHG shoreline) are not in the repository; the README says where to download them and where to put them. Without them, `00_prepare_inputs.R` and every model, table and figure that reads the stored descriptors still run.
+
+# Verification: an independent replication in Python
+
+To guard against an implementation error in any one package, the pipeline up to the results file was written a second time in Python (pandas for the record, rasterio/shapely for the descriptors, statsmodels `MixedLM` for the models; `replication/python/`) and run on the same inputs. `04_replication_check.R` compares the two results files quantity by quantity and writes `replication/replication_check.csv`:
+
+```{r replication}
+rp <- read_csv(file.path(root, "replication", "replication_check.csv"), show_col_types = FALSE)
+cat(sprintf("%d quantities compared; %d differ by more than 0.01\n", sum(!is.na(rp$Python)), sum(abs(rp$difference) > 0.01, na.rm = TRUE)))
+rp %>% filter(abs(difference) > 0.01) %>% mutate(across(where(is.numeric), ~ signif(.x, 4))) %>% tab(caption = "The only differences larger than 0.01")
+```
+
+The sensor-night ΔT values agree to machine precision; the raster fractions differ by at most 0.2 percentage points at 50 m (the two raster libraries make different choices about pixels on the circle's edge); every coefficient, variance component, AIC and R² agrees to three decimals. The residual differences are documented implementation choices: `lme4` drops the night dummy that is collinear with district (so the night-effect test has 9 rather than 10 df), one ʻEwa cross-validation fold converged to a poor optimum in statsmodels, and the two joint-test statistics differ in the second decimal because of optimizer tolerances. In other words: the conclusions of the thesis do not depend on which software fitted the models.
+
+# References for the software
+
+* Bates D, Mächler M, Bolker B, Walker S (2015). Fitting linear mixed-effects models using lme4. *Journal of Statistical Software* 67(1), 1–48. doi:10.18637/jss.v067.i01
+* Fox J, Weisberg S (2019). *An R Companion to Applied Regression*, 3rd ed. Sage.
+* Grolemund G, Wickham H (2011). Dates and times made easy with lubridate. *Journal of Statistical Software* 40(3), 1–25. doi:10.18637/jss.v040.i03
+* Hijmans RJ (2024). terra: Spatial data analysis. R package. https://CRAN.R-project.org/package=terra
+* Johnson GT, Watson ID (1984). The determination of view-factors in urban canyons. *Journal of Climate and Applied Meteorology* 23(2), 329–335. doi:10.1175/1520-0450(1984)023<0329:TDOVFI>2.0.CO;2
+* Kuznetsova A, Brockhoff PB, Christensen RHB (2017). lmerTest package: tests in linear mixed effects models. *Journal of Statistical Software* 82(13), 1–26. doi:10.18637/jss.v082.i13
+* Lüdecke D, Ben-Shachar MS, Patil I, Waggoner P, Makowski D (2021). performance: an R package for assessment, comparison and testing of statistical models. *Journal of Open Source Software* 6(60), 3139. doi:10.21105/joss.03139
+* Nakagawa S, Schielzeth H (2013). A general and simple method for obtaining R² from generalized linear mixed-effects models. *Methods in Ecology and Evolution* 4(2), 133–142. doi:10.1111/j.2041-210x.2012.00261.x
+* Ooms J (2014). The jsonlite package: a practical and consistent mapping between JSON data and R objects. arXiv:1403.2805
+* Pebesma E (2018). Simple features for R: standardized support for spatial vector data. *The R Journal* 10(1), 439–446. doi:10.32614/RJ-2018-009
+* Pedersen TL (2024). patchwork: the composer of plots. R package. https://CRAN.R-project.org/package=patchwork
+* R Core Team (2024). *R: A language and environment for statistical computing*. R Foundation for Statistical Computing, Vienna. https://www.R-project.org/
+* Wickham H (2016). *ggplot2: Elegant Graphics for Data Analysis*. Springer. doi:10.1007/978-3-319-24277-4
+* Wickham H, Averick M, Bryan J, et al. (2019). Welcome to the tidyverse. *Journal of Open Source Software* 4(43), 1686. doi:10.21105/joss.01686
+* Xie Y, Allaire JJ, Grolemund G (2018). *R Markdown: The Definitive Guide*. Chapman and Hall/CRC.
+* Zuur AF, Ieno EN, Walker NJ, Saveliev AA, Smith GM (2009). *Mixed Effects Models and Extensions in Ecology with R*. Springer. doi:10.1007/978-0-387-87458-6

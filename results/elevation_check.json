@@ -1,0 +1,1832 @@
+{
+  "source": {
+    "dem": "USGS 3DEP 1 m lidar DEM, bare earth, via the USGS Elevation Point Query Service (epqs.nationalmap.gov, v1)",
+    "retrieved": "2026-09-19",
+    "radius_m": 100,
+    "n_sites": 74,
+    "n_obs": 400,
+    "z_sd_elev": 9.62248768110058,
+    "z_mean_elev": 12.203
+  },
+  "descriptives": [
+    {
+      "region": "Ewa",
+      "n": 38,
+      "min": 4.12,
+      "q25": 14.38,
+      "median": 17.48,
+      "mean": 18.3728947368421,
+      "q75": 19.5425,
+      "max": 41.48,
+      "sd": 8.08103582733515
+    },
+    {
+      "region": "Honolulu",
+      "n": 36,
+      "min": 0.84,
+      "q25": 2.41,
+      "median": 4.815,
+      "mean": 8.44833333333333,
+      "q75": 11.5375,
+      "max": 41.43,
+      "sd": 8.5689821032439
+    }
+  ],
+  "correlations": [
+    {
+      "scope": "pooled",
+      "variable": "imperv",
+      "r": -0.119724116571297
+    },
+    {
+      "scope": "pooled",
+      "variable": "tree",
+      "r": -0.0472752374958307
+    },
+    {
+      "scope": "pooled",
+      "variable": "bldg",
+      "r": -0.263958792342148
+    },
+    {
+      "scope": "pooled",
+      "variable": "water",
+      "r": -0.280069623957793
+    },
+    {
+      "scope": "pooled",
+      "variable": "height",
+      "r": -0.313615524970098
+    },
+    {
+      "scope": "pooled",
+      "variable": "svf_point",
+      "r": 0.0872436930910941
+    },
+    {
+      "scope": "pooled",
+      "variable": "aspect",
+      "r": -0.29207360596072
+    },
+    {
+      "scope": "pooled",
+      "variable": "coast_km",
+      "r": 0.699490277869836
+    },
+    {
+      "scope": "pooled",
+      "variable": "dT_site",
+      "r": -0.233275754475698
+    },
+    {
+      "scope": "Honolulu",
+      "variable": "imperv",
+      "r": 0.121706059601102
+    },
+    {
+      "scope": "Honolulu",
+      "variable": "tree",
+      "r": 0.215507383024832
+    },
+    {
+      "scope": "Honolulu",
+      "variable": "bldg",
+      "r": 0.169673457107445
+    },
+    {
+      "scope": "Honolulu",
+      "variable": "water",
+      "r": -0.286288119266574
+    },
+    {
+      "scope": "Honolulu",
+      "variable": "height",
+      "r": -0.115671313249802
+    },
+    {
+      "scope": "Honolulu",
+      "variable": "svf_point",
+      "r": -0.0395794416218288
+    },
+    {
+      "scope": "Honolulu",
+      "variable": "aspect",
+      "r": 0.0164078743238123
+    },
+    {
+      "scope": "Honolulu",
+      "variable": "coast_km",
+      "r": 0.608533032427713
+    },
+    {
+      "scope": "Honolulu",
+      "variable": "dT_site",
+      "r": -0.370169787875542
+    },
+    {
+      "scope": "Ewa",
+      "variable": "imperv",
+      "r": -0.188250917697727
+    },
+    {
+      "scope": "Ewa",
+      "variable": "tree",
+      "r": -0.243440347026961
+    },
+    {
+      "scope": "Ewa",
+      "variable": "bldg",
+      "r": -0.394423418397657
+    },
+    {
+      "scope": "Ewa",
+      "variable": "water",
+      "r": 0.0127227880548751
+    },
+    {
+      "scope": "Ewa",
+      "variable": "height",
+      "r": -0.0834106838804365
+    },
+    {
+      "scope": "Ewa",
+      "variable": "svf_point",
+      "r": -0.07798916050446
+    },
+    {
+      "scope": "Ewa",
+      "variable": "aspect",
+      "r": -0.376778963666157
+    },
+    {
+      "scope": "Ewa",
+      "variable": "coast_km",
+      "r": 0.60984734747016
+    },
+    {
+      "scope": "Ewa",
+      "variable": "dT_site",
+      "r": -0.0986197262879626
+    }
+  ],
+  "vif": [
+    {
+      "scope": "pooled",
+      "variable": "imperv",
+      "vif_with_elevation": 3.03020526902974
+    },
+    {
+      "scope": "pooled",
+      "variable": "tree",
+      "vif_with_elevation": 1.25325928812038
+    },
+    {
+      "scope": "pooled",
+      "variable": "bldg",
+      "vif_with_elevation": 4.36180379952777
+    },
+    {
+      "scope": "pooled",
+      "variable": "water",
+      "vif_with_elevation": 1.37896499028333
+    },
+    {
+      "scope": "pooled",
+      "variable": "height",
+      "vif_with_elevation": 2.27538699643838
+    },
+    {
+      "scope": "pooled",
+      "variable": "svf_point",
+      "vif_with_elevation": 1.11111757199154
+    },
+    {
+      "scope": "pooled",
+      "variable": "aspect",
+      "vif_with_elevation": 4.10550406374889
+    },
+    {
+      "scope": "pooled",
+      "variable": "coast_km",
+      "vif_with_elevation": 2.25930827173988
+    },
+    {
+      "scope": "pooled",
+      "variable": "elev_m",
+      "vif_with_elevation": 2.11287026629597
+    },
+    {
+      "scope": "Honolulu",
+      "variable": "imperv",
+      "vif_with_elevation": 3.82174063851237
+    },
+    {
+      "scope": "Honolulu",
+      "variable": "tree",
+      "vif_with_elevation": 1.88830423081542
+    },
+    {
+      "scope": "Honolulu",
+      "variable": "bldg",
+      "vif_with_elevation": 5.12577136462705
+    },
+    {
+      "scope": "Honolulu",
+      "variable": "water",
+      "vif_with_elevation": 1.91121443475577
+    },
+    {
+      "scope": "Honolulu",
+      "variable": "height",
+      "vif_with_elevation": 2.81066174838693
+    },
+    {
+      "scope": "Honolulu",
+      "variable": "svf_point",
+      "vif_with_elevation": 1.12126445974593
+    },
+    {
+      "scope": "Honolulu",
+      "variable": "aspect",
+      "vif_with_elevation": 5.42624963811131
+    },
+    {
+      "scope": "Honolulu",
+      "variable": "coast_km",
+      "vif_with_elevation": 1.77202371398741
+    },
+    {
+      "scope": "Honolulu",
+      "variable": "elev_m",
+      "vif_with_elevation": 1.73808616602925
+    },
+    {
+      "scope": "Ewa",
+      "variable": "imperv",
+      "vif_with_elevation": 2.81443370194588
+    },
+    {
+      "scope": "Ewa",
+      "variable": "tree",
+      "vif_with_elevation": 1.20528455254673
+    },
+    {
+      "scope": "Ewa",
+      "variable": "bldg",
+      "vif_with_elevation": 5.87097020713807
+    },
+    {
+      "scope": "Ewa",
+      "variable": "water",
+      "vif_with_elevation": 1.11602432859998
+    },
+    {
+      "scope": "Ewa",
+      "variable": "height",
+      "vif_with_elevation": 1.33112501550024
+    },
+    {
+      "scope": "Ewa",
+      "variable": "svf_point",
+      "vif_with_elevation": 1.20976537691023
+    },
+    {
+      "scope": "Ewa",
+      "variable": "aspect",
+      "vif_with_elevation": 3.40548122286251
+    },
+    {
+      "scope": "Ewa",
+      "variable": "coast_km",
+      "vif_with_elevation": 2.07883269995601
+    },
+    {
+      "scope": "Ewa",
+      "variable": "elev_m",
+      "vif_with_elevation": 1.68098012323967
+    }
+  ],
+  "sites": [
+    {
+      "region": "Ewa",
+      "sensor_id": "AD1",
+      "dT_site": -0.655598958333333,
+      "elev_m": 17.41,
+      "coast_km": 1.50634916267277
+    },
+    {
+      "region": "Ewa",
+      "sensor_id": "AD3",
+      "dT_site": 0.182942708333333,
+      "elev_m": 21.82,
+      "coast_km": 3.57666086484314
+    },
+    {
+      "region": "Ewa",
+      "sensor_id": "EWA03",
+      "dT_site": 0.386067708333333,
+      "elev_m": 29.76,
+      "coast_km": 4.75522508008295
+    },
+    {
+      "region": "Ewa",
+      "sensor_id": "EWA04",
+      "dT_site": 0.279296875,
+      "elev_m": 14.85,
+      "coast_km": 2.82851350748657
+    },
+    {
+      "region": "Ewa",
+      "sensor_id": "EWA05",
+      "dT_site": 0.228515625,
+      "elev_m": 13.88,
+      "coast_km": 0.310418133120065
+    },
+    {
+      "region": "Ewa",
+      "sensor_id": "EWA07",
+      "dT_site": -0.141276041666667,
+      "elev_m": 19.05,
+      "coast_km": 3.02696218350438
+    },
+    {
+      "region": "Ewa",
+      "sensor_id": "EWA08",
+      "dT_site": -0.387369791666667,
+      "elev_m": 16.82,
+      "coast_km": 0.164867152921379
+    },
+    {
+      "region": "Ewa",
+      "sensor_id": "EWA09",
+      "dT_site": 0.0709635416666667,
+      "elev_m": 19.31,
+      "coast_km": 3.12302730203712
+    },
+    {
+      "region": "Ewa",
+      "sensor_id": "EWA12",
+      "dT_site": -0.341796875,
+      "elev_m": 14.63,
+      "coast_km": 0.432541476219131
+    },
+    {
+      "region": "Ewa",
+      "sensor_id": "EWA13",
+      "dT_site": -0.481119791666667,
+      "elev_m": 14.32,
+      "coast_km": 3.18733914061585
+    },
+    {
+      "region": "Ewa",
+      "sensor_id": "EWA14",
+      "dT_site": 1.07877604166667,
+      "elev_m": 22.38,
+      "coast_km": 3.21859537165724
+    },
+    {
+      "region": "Ewa",
+      "sensor_id": "EWA15",
+      "dT_site": -0.229817708333333,
+      "elev_m": 14.33,
+      "coast_km": 3.07026401162462
+    },
+    {
+      "region": "Ewa",
+      "sensor_id": "EWA16",
+      "dT_site": -1.40169270833333,
+      "elev_m": 22.7,
+      "coast_km": 3.67206839821851
+    },
+    {
+      "region": "Ewa",
+      "sensor_id": "EWA17",
+      "dT_site": -0.660807291666667,
+      "elev_m": 18.99,
+      "coast_km": 3.81405725464384
+    },
+    {
+      "region": "Ewa",
+      "sensor_id": "EWA18",
+      "dT_site": 0.0358072916666667,
+      "elev_m": 9.28,
+      "coast_km": 2.11146695442596
+    },
+    {
+      "region": "Ewa",
+      "sensor_id": "EWA19",
+      "dT_site": -0.387369791666667,
+      "elev_m": 16.47,
+      "coast_km": 3.07791930989409
+    },
+    {
+      "region": "Ewa",
+      "sensor_id": "EWA20",
+      "dT_site": -0.0201822916666667,
+      "elev_m": 10.45,
+      "coast_km": 0.518600546322726
+    },
+    {
+      "region": "Ewa",
+      "sensor_id": "EWA21",
+      "dT_site": 0.383463541666667,
+      "elev_m": 12.49,
+      "coast_km": 0.704548960613895
+    },
+    {
+      "region": "Ewa",
+      "sensor_id": "EWA23",
+      "dT_site": -0.931640625,
+      "elev_m": 38.88,
+      "coast_km": 3.39524745849735
+    },
+    {
+      "region": "Ewa",
+      "sensor_id": "EWA24",
+      "dT_site": 0.932942708333333,
+      "elev_m": 40.27,
+      "coast_km": 3.79921578526691
+    },
+    {
+      "region": "Ewa",
+      "sensor_id": "EWA25",
+      "dT_site": 0.612630208333333,
+      "elev_m": 17.55,
+      "coast_km": 3.05096862621871
+    },
+    {
+      "region": "Ewa",
+      "sensor_id": "EWA26",
+      "dT_site": 1.60611979166667,
+      "elev_m": 6.02,
+      "coast_km": 1.43441879655285
+    },
+    {
+      "region": "Ewa",
+      "sensor_id": "EWA28",
+      "dT_site": -0.568359375,
+      "elev_m": 21.46,
+      "coast_km": 3.43938306010113
+    },
+    {
+      "region": "Ewa",
+      "sensor_id": "EWA29",
+      "dT_site": 0.188151041666667,
+      "elev_m": 19.14,
+      "coast_km": 3.03152038189817
+    },
+    {
+      "region": "Ewa",
+      "sensor_id": "EWA31",
+      "dT_site": 0.172526041666667,
+      "elev_m": 19.02,
+      "coast_km": 3.00009933310883
+    },
+    {
+      "region": "Ewa",
+      "sensor_id": "EWA32",
+      "dT_site": 1.189453125,
+      "elev_m": 22.35,
+      "coast_km": 3.64207520520857
+    },
+    {
+      "region": "Ewa",
+      "sensor_id": "EWA33",
+      "dT_site": 0.0475260416666667,
+      "elev_m": 19.16,
+      "coast_km": 2.85553839467134
+    },
+    {
+      "region": "Ewa",
+      "sensor_id": "EWA35",
+      "dT_site": -0.737630208333333,
+      "elev_m": 18.71,
+      "coast_km": 0.700977199055986
+    },
+    {
+      "region": "Ewa",
+      "sensor_id": "EWA36",
+      "dT_site": -0.274088541666667,
+      "elev_m": 41.48,
+      "coast_km": 4.1791823495333
+    },
+    {
+      "region": "Ewa",
+      "sensor_id": "EWA37",
+      "dT_site": -0.481119791666667,
+      "elev_m": 10.61,
+      "coast_km": 2.00501283111898
+    },
+    {
+      "region": "Ewa",
+      "sensor_id": "EWA38",
+      "dT_site": -0.457682291666667,
+      "elev_m": 14.66,
+      "coast_km": 3.21921348625417
+    },
+    {
+      "region": "Ewa",
+      "sensor_id": "EWA39",
+      "dT_site": 0.194661458333333,
+      "elev_m": 19.62,
+      "coast_km": 3.58457216725028
+    },
+    {
+      "region": "Ewa",
+      "sensor_id": "EWA40",
+      "dT_site": -0.0826822916666667,
+      "elev_m": 18.84,
+      "coast_km": 3.04630335177378
+    },
+    {
+      "region": "Ewa",
+      "sensor_id": "EWA42",
+      "dT_site": -0.225911458333333,
+      "elev_m": 14.53,
+      "coast_km": 3.21148550146863
+    },
+    {
+      "region": "Ewa",
+      "sensor_id": "EWA45",
+      "dT_site": 0.255859375,
+      "elev_m": 16.36,
+      "coast_km": 1.77966839639491
+    },
+    {
+      "region": "Ewa",
+      "sensor_id": "EWA46",
+      "dT_site": 0.766276041666667,
+      "elev_m": 4.12,
+      "coast_km": 0.450703709607997
+    },
+    {
+      "region": "Ewa",
+      "sensor_id": "EWA48",
+      "dT_site": -0.264973958333333,
+      "elev_m": 11.4,
+      "coast_km": 2.40515718836997
+    },
+    {
+      "region": "Ewa",
+      "sensor_id": "EWA50",
+      "dT_site": -0.791015625,
+      "elev_m": 15.05,
+      "coast_km": 2.34849836324588
+    },
+    {
+      "region": "Honolulu",
+      "sensor_id": "HNL01",
+      "dT_site": -1.873046875,
+      "elev_m": 11.74,
+      "coast_km": 2.44374579592436
+    },
+    {
+      "region": "Honolulu",
+      "sensor_id": "HNL03",
+      "dT_site": -0.61235119047619,
+      "elev_m": 4.39,
+      "coast_km": 1.53751726882179
+    },
+    {
+      "region": "Honolulu",
+      "sensor_id": "HNL04",
+      "dT_site": -1.015625,
+      "elev_m": 11.47,
+      "coast_km": 2.30041240009199
+    },
+    {
+      "region": "Honolulu",
+      "sensor_id": "HNL05",
+      "dT_site": -0.103422619047619,
+      "elev_m": 15.7,
+      "coast_km": 1.98921126834696
+    },
+    {
+      "region": "Honolulu",
+      "sensor_id": "HNL08",
+      "dT_site": 1.52380952380952,
+      "elev_m": 3.94,
+      "coast_km": 1.33276832705004
+    },
+    {
+      "region": "Honolulu",
+      "sensor_id": "HNL09",
+      "dT_site": 0.348214285714286,
+      "elev_m": 3.98,
+      "coast_km": 1.58786770818715
+    },
+    {
+      "region": "Honolulu",
+      "sensor_id": "HNL12",
+      "dT_site": -0.369791666666667,
+      "elev_m": 2.37,
+      "coast_km": 0.311371439027432
+    },
+    {
+      "region": "Honolulu",
+      "sensor_id": "HNL14",
+      "dT_site": -1.01860119047619,
+      "elev_m": 1.67,
+      "coast_km": 0.818094061471085
+    },
+    {
+      "region": "Honolulu",
+      "sensor_id": "HNL17",
+      "dT_site": 0.0200892857142857,
+      "elev_m": 10.12,
+      "coast_km": 0.54684879819983
+    },
+    {
+      "region": "Honolulu",
+      "sensor_id": "HNL18",
+      "dT_site": 0.0989583333333333,
+      "elev_m": 11.01,
+      "coast_km": 1.72836861444368
+    },
+    {
+      "region": "Honolulu",
+      "sensor_id": "HNL20",
+      "dT_site": -0.704613095238095,
+      "elev_m": 16.38,
+      "coast_km": 2.67234598521144
+    },
+    {
+      "region": "Honolulu",
+      "sensor_id": "HNL21",
+      "dT_site": 0.96577380952381,
+      "elev_m": 2.28,
+      "coast_km": 0.459062431825204
+    },
+    {
+      "region": "Honolulu",
+      "sensor_id": "HNL22",
+      "dT_site": 0.104910714285714,
+      "elev_m": 2.53,
+      "coast_km": 0.726927987697737
+    },
+    {
+      "region": "Honolulu",
+      "sensor_id": "HNL26",
+      "dT_site": 0.982142857142857,
+      "elev_m": 2.42,
+      "coast_km": 0.15671836154743
+    },
+    {
+      "region": "Honolulu",
+      "sensor_id": "HNL30",
+      "dT_site": -0.636904761904762,
+      "elev_m": 41.43,
+      "coast_km": 1.79770774140879
+    },
+    {
+      "region": "Honolulu",
+      "sensor_id": "HNL31",
+      "dT_site": -0.177827380952381,
+      "elev_m": 7.18,
+      "coast_km": 1.37057200344861
+    },
+    {
+      "region": "Honolulu",
+      "sensor_id": "HNL32",
+      "dT_site": -0.00446428571428571,
+      "elev_m": 2.57,
+      "coast_km": 1.03948788763157
+    },
+    {
+      "region": "Honolulu",
+      "sensor_id": "HNL33",
+      "dT_site": 1.40625,
+      "elev_m": 2.48,
+      "coast_km": 0.471514428391921
+    },
+    {
+      "region": "Honolulu",
+      "sensor_id": "HNL34",
+      "dT_site": 0.501302083333333,
+      "elev_m": 5.24,
+      "coast_km": 1.1898710706616
+    },
+    {
+      "region": "Honolulu",
+      "sensor_id": "HNL35",
+      "dT_site": -0.00520833333333333,
+      "elev_m": 15.03,
+      "coast_km": 1.73764562697539
+    },
+    {
+      "region": "Honolulu",
+      "sensor_id": "HNL37",
+      "dT_site": -0.700892857142857,
+      "elev_m": 6.17,
+      "coast_km": 1.35899089641112
+    },
+    {
+      "region": "Honolulu",
+      "sensor_id": "HNL38",
+      "dT_site": 0.452380952380952,
+      "elev_m": 2.23,
+      "coast_km": 0.396664116721032
+    },
+    {
+      "region": "Honolulu",
+      "sensor_id": "HNL43",
+      "dT_site": -0.0944940476190476,
+      "elev_m": 23,
+      "coast_km": 2.0988346761561
+    },
+    {
+      "region": "Honolulu",
+      "sensor_id": "HNL44",
+      "dT_site": 0.825892857142857,
+      "elev_m": 9.37,
+      "coast_km": 1.57857925395113
+    },
+    {
+      "region": "Honolulu",
+      "sensor_id": "HNL45",
+      "dT_site": -0.0840773809523809,
+      "elev_m": 17.29,
+      "coast_km": 1.57077378428594
+    },
+    {
+      "region": "Honolulu",
+      "sensor_id": "HNL47",
+      "dT_site": 0.165178571428571,
+      "elev_m": 2,
+      "coast_km": 1.30836368519846
+    },
+    {
+      "region": "Honolulu",
+      "sensor_id": "HNL50",
+      "dT_site": -0.444940476190476,
+      "elev_m": 3.52,
+      "coast_km": 1.69531199536922
+    },
+    {
+      "region": "Honolulu",
+      "sensor_id": "Hnl15a",
+      "dT_site": -0.16889880952381,
+      "elev_m": 2.65,
+      "coast_km": 0.661980380083131
+    },
+    {
+      "region": "Honolulu",
+      "sensor_id": "Hnl21a",
+      "dT_site": 0.424107142857143,
+      "elev_m": 14.94,
+      "coast_km": 1.59666783846511
+    },
+    {
+      "region": "Honolulu",
+      "sensor_id": "ID06",
+      "dT_site": 0.579613095238095,
+      "elev_m": 0.84,
+      "coast_km": 0.139705734324595
+    },
+    {
+      "region": "Honolulu",
+      "sensor_id": "ID07",
+      "dT_site": 1.16666666666667,
+      "elev_m": 1.99,
+      "coast_km": 0.440383216173405
+    },
+    {
+      "region": "Honolulu",
+      "sensor_id": "ID22",
+      "dT_site": -0.446428571428571,
+      "elev_m": 6.81,
+      "coast_km": 2.49091478932115
+    },
+    {
+      "region": "Honolulu",
+      "sensor_id": "ID26",
+      "dT_site": 0.947916666666667,
+      "elev_m": 2.38,
+      "coast_km": 0.811713093770895
+    },
+    {
+      "region": "Honolulu",
+      "sensor_id": "ID27",
+      "dT_site": 0.0706845238095238,
+      "elev_m": 9.41,
+      "coast_km": 2.07151092662358
+    },
+    {
+      "region": "Honolulu",
+      "sensor_id": "ID41",
+      "dT_site": -0.69047619047619,
+      "elev_m": 25.83,
+      "coast_km": 2.39563836178839
+    },
+    {
+      "region": "Honolulu",
+      "sensor_id": "ID46",
+      "dT_site": -0.125,
+      "elev_m": 1.78,
+      "coast_km": 0.980941319741024
+    }
+  ],
+  "models": [
+    {
+      "scope": "pooled",
+      "model": "null",
+      "rhs": "region",
+      "k": 2,
+      "aic": 740.761109608308,
+      "r2m": 0.00144274046061234,
+      "r2c": 0.629715228372687,
+      "coast_per_km": null,
+      "coast_se": null,
+      "coast_p": null,
+      "elev_per_10m": null,
+      "elev_se": null,
+      "elev_p": null,
+      "imperv_per_10pp": null,
+      "imperv_p": null,
+      "height_per_m": null,
+      "height_p": null,
+      "lrt_chi2": null,
+      "lrt_df": null,
+      "lrt_p": null,
+      "converged": true,
+      "lrt_elev_given_coast_chi2": null,
+      "lrt_elev_given_coast_p": null,
+      "lrt_coast_given_elev_chi2": null,
+      "lrt_coast_given_elev_p": null,
+      "lrt_elev_given_model_chi2": null,
+      "lrt_elev_given_model_p": null,
+      "delta_aic_vs_without": null,
+      "delta_aic_vs_null": 0
+    },
+    {
+      "scope": "pooled",
+      "model": "elevation only",
+      "rhs": "region + elev_m_z",
+      "k": 3,
+      "aic": 738.00229075147,
+      "r2m": 0.0446166812111916,
+      "r2c": 0.632481414891296,
+      "coast_per_km": null,
+      "coast_se": null,
+      "coast_p": null,
+      "elev_per_10m": -0.202137991158276,
+      "elev_se": 0.0930520994326906,
+      "elev_p": 0.0332069656022228,
+      "imperv_per_10pp": null,
+      "imperv_p": null,
+      "height_per_m": null,
+      "height_p": null,
+      "lrt_chi2": 4.7588188568385,
+      "lrt_df": 1,
+      "lrt_p": 0.0291485440960056,
+      "converged": true,
+      "lrt_elev_given_coast_chi2": null,
+      "lrt_elev_given_coast_p": null,
+      "lrt_coast_given_elev_chi2": null,
+      "lrt_coast_given_elev_p": null,
+      "lrt_elev_given_model_chi2": null,
+      "lrt_elev_given_model_p": null,
+      "delta_aic_vs_without": null,
+      "delta_aic_vs_null": -2.7588188568385
+    },
+    {
+      "scope": "pooled",
+      "model": "coast only",
+      "rhs": "region + coast_km_z",
+      "k": 3,
+      "aic": 738.420726643976,
+      "r2m": 0.035755927296779,
+      "r2c": 0.630237021191823,
+      "coast_per_km": -0.161176006937037,
+      "coast_se": 0.0777877583684912,
+      "coast_p": 0.0418177463629035,
+      "elev_per_10m": null,
+      "elev_se": null,
+      "elev_p": null,
+      "imperv_per_10pp": null,
+      "imperv_p": null,
+      "height_per_m": null,
+      "height_p": null,
+      "lrt_chi2": 4.34038296433221,
+      "lrt_df": 1,
+      "lrt_p": 0.0372185509606628,
+      "converged": true,
+      "lrt_elev_given_coast_chi2": null,
+      "lrt_elev_given_coast_p": null,
+      "lrt_coast_given_elev_chi2": null,
+      "lrt_coast_given_elev_p": null,
+      "lrt_elev_given_model_chi2": null,
+      "lrt_elev_given_model_p": null,
+      "delta_aic_vs_without": null,
+      "delta_aic_vs_null": -2.34038296433221
+    },
+    {
+      "scope": "pooled",
+      "model": "coast + elevation",
+      "rhs": "region + coast_km_z + elev_m_z",
+      "k": 4,
+      "aic": 738.962731045127,
+      "r2m": 0.0501302751828998,
+      "r2c": 0.634287858642802,
+      "coast_per_km": -0.0950824496542334,
+      "coast_se": 0.0956955031556479,
+      "coast_p": 0.323772903313516,
+      "elev_per_10m": -0.135374916472358,
+      "elev_se": 0.114741169176606,
+      "elev_p": 0.242116333107679,
+      "imperv_per_10pp": null,
+      "imperv_p": null,
+      "height_per_m": null,
+      "height_p": null,
+      "lrt_chi2": 5.79837856318113,
+      "lrt_df": 2,
+      "lrt_p": 0.0550678464811411,
+      "converged": true,
+      "lrt_elev_given_coast_chi2": 1.45799559884892,
+      "lrt_elev_given_coast_p": 0.227249311364631,
+      "lrt_coast_given_elev_chi2": 1.03955970634263,
+      "lrt_coast_given_elev_p": 0.307923894668847,
+      "lrt_elev_given_model_chi2": null,
+      "lrt_elev_given_model_p": null,
+      "delta_aic_vs_without": null,
+      "delta_aic_vs_null": -1.79837856318113
+    },
+    {
+      "scope": "pooled",
+      "model": "parsimonious (district + impervious + height)",
+      "rhs": "region + imperv_z + height_z",
+      "k": 4,
+      "aic": 727.130364799177,
+      "r2m": 0.154881452585877,
+      "r2c": 0.640749920693603,
+      "coast_per_km": null,
+      "coast_se": null,
+      "coast_p": null,
+      "elev_per_10m": null,
+      "elev_se": null,
+      "elev_p": null,
+      "imperv_per_10pp": 0.0873083612963989,
+      "imperv_p": 0.00605428122940599,
+      "height_per_m": 0.0394926345107249,
+      "height_p": 0.0322451686678623,
+      "lrt_chi2": 17.6307448091317,
+      "lrt_df": 2,
+      "lrt_p": 0.000148433664301279,
+      "converged": true,
+      "lrt_elev_given_coast_chi2": null,
+      "lrt_elev_given_coast_p": null,
+      "lrt_coast_given_elev_chi2": null,
+      "lrt_coast_given_elev_p": null,
+      "lrt_elev_given_model_chi2": null,
+      "lrt_elev_given_model_p": null,
+      "delta_aic_vs_without": null,
+      "delta_aic_vs_null": -13.6307448091317
+    },
+    {
+      "scope": "pooled",
+      "model": "parsimonious (district + impervious + height) + elevation",
+      "rhs": "region + imperv_z + height_z + elev_m_z",
+      "k": 5,
+      "aic": 724.406120997867,
+      "r2m": 0.183332391998362,
+      "r2c": 0.640630871910585,
+      "coast_per_km": null,
+      "coast_se": null,
+      "coast_p": null,
+      "elev_per_10m": -0.180192836989016,
+      "elev_se": 0.0845036635761957,
+      "elev_p": 0.036529283809002,
+      "imperv_per_10pp": 0.0882380116126703,
+      "imperv_p": 0.00451046101473847,
+      "height_per_m": 0.0356721840201281,
+      "height_p": 0.0476164403255992,
+      "lrt_chi2": 22.3549886104414,
+      "lrt_df": 3,
+      "lrt_p": 5.50260420225956e-05,
+      "converged": true,
+      "lrt_elev_given_coast_chi2": null,
+      "lrt_elev_given_coast_p": null,
+      "lrt_coast_given_elev_chi2": null,
+      "lrt_coast_given_elev_p": null,
+      "lrt_elev_given_model_chi2": 4.72424380130974,
+      "lrt_elev_given_model_p": 0.0297402577687733,
+      "delta_aic_vs_without": -2.72424380130974,
+      "delta_aic_vs_null": -16.3549886104414
+    },
+    {
+      "scope": "pooled",
+      "model": "full (district + eight descriptors)",
+      "rhs": "region + imperv_z + tree_z + bldg_z + water_z + height_z + svf_point_z + aspect_z + coast_km_z",
+      "k": 10,
+      "aic": 721.843398727073,
+      "r2m": 0.254122623286024,
+      "r2c": 0.652469215495446,
+      "coast_per_km": -0.177060152368547,
+      "coast_se": 0.0717923617669477,
+      "coast_p": 0.0162273596462321,
+      "elev_per_10m": null,
+      "elev_se": null,
+      "elev_p": null,
+      "imperv_per_10pp": 0.160754773872914,
+      "imperv_p": 0.00099614046644945,
+      "height_per_m": 0.0561079816696761,
+      "height_p": 0.0117313430496857,
+      "lrt_chi2": 34.9177108812351,
+      "lrt_df": 8,
+      "lrt_p": 2.76772173723865e-05,
+      "converged": true,
+      "lrt_elev_given_coast_chi2": null,
+      "lrt_elev_given_coast_p": null,
+      "lrt_coast_given_elev_chi2": null,
+      "lrt_coast_given_elev_p": null,
+      "lrt_elev_given_model_chi2": null,
+      "lrt_elev_given_model_p": null,
+      "delta_aic_vs_without": null,
+      "delta_aic_vs_null": -18.9177108812351
+    },
+    {
+      "scope": "pooled",
+      "model": "full (district + eight descriptors) + elevation",
+      "rhs": "region + imperv_z + tree_z + bldg_z + water_z + height_z + svf_point_z + aspect_z + coast_km_z + elev_m_z",
+      "k": 11,
+      "aic": 723.099074920783,
+      "r2m": 0.258055938282717,
+      "r2c": 0.655476018081187,
+      "coast_per_km": -0.137575623108425,
+      "coast_se": 0.087355066147077,
+      "coast_p": 0.120064779560882,
+      "elev_per_10m": -0.0811991842735815,
+      "elev_se": 0.101828395015906,
+      "elev_p": 0.428175983754959,
+      "imperv_per_10pp": 0.160908309418348,
+      "imperv_p": 0.00102366522822409,
+      "height_per_m": 0.054272940026441,
+      "height_p": 0.0154791831117144,
+      "lrt_chi2": 35.6620346875255,
+      "lrt_df": 9,
+      "lrt_p": 4.5510969053658e-05,
+      "converged": true,
+      "lrt_elev_given_coast_chi2": null,
+      "lrt_elev_given_coast_p": null,
+      "lrt_coast_given_elev_chi2": null,
+      "lrt_coast_given_elev_p": null,
+      "lrt_elev_given_model_chi2": 0.744323806290481,
+      "lrt_elev_given_model_p": 0.38827931945376,
+      "delta_aic_vs_without": 1.25567619370952,
+      "delta_aic_vs_null": -17.6620346875255
+    },
+    {
+      "scope": "Honolulu",
+      "model": "null",
+      "rhs": "1",
+      "k": 1,
+      "aic": 306.436250467202,
+      "r2m": 0,
+      "r2c": 0.809782903139768,
+      "coast_per_km": null,
+      "coast_se": null,
+      "coast_p": null,
+      "elev_per_10m": null,
+      "elev_se": null,
+      "elev_p": null,
+      "imperv_per_10pp": null,
+      "imperv_p": null,
+      "height_per_m": null,
+      "height_p": null,
+      "lrt_chi2": null,
+      "lrt_df": null,
+      "lrt_p": null,
+      "converged": true,
+      "lrt_elev_given_coast_chi2": null,
+      "lrt_elev_given_coast_p": null,
+      "lrt_coast_given_elev_chi2": null,
+      "lrt_coast_given_elev_p": null,
+      "lrt_elev_given_model_chi2": null,
+      "lrt_elev_given_model_p": null,
+      "delta_aic_vs_without": null,
+      "delta_aic_vs_null": 0
+    },
+    {
+      "scope": "Honolulu",
+      "model": "elevation only",
+      "rhs": "elev_m_z",
+      "k": 2,
+      "aic": 303.102051956749,
+      "r2m": 0.111802502024212,
+      "r2c": 0.813415225790418,
+      "coast_per_km": null,
+      "coast_se": null,
+      "coast_p": null,
+      "elev_per_10m": -0.315087141798751,
+      "elev_se": 0.135226354555849,
+      "elev_p": 0.0259395451595103,
+      "imperv_per_10pp": null,
+      "imperv_p": null,
+      "height_per_m": null,
+      "height_p": null,
+      "lrt_chi2": 5.33419851045301,
+      "lrt_df": 1,
+      "lrt_p": 0.0209109532292157,
+      "converged": true,
+      "lrt_elev_given_coast_chi2": null,
+      "lrt_elev_given_coast_p": null,
+      "lrt_coast_given_elev_chi2": null,
+      "lrt_coast_given_elev_p": null,
+      "lrt_elev_given_model_chi2": null,
+      "lrt_elev_given_model_p": null,
+      "delta_aic_vs_without": null,
+      "delta_aic_vs_null": -3.33419851045301
+    },
+    {
+      "scope": "Honolulu",
+      "model": "coast only",
+      "rhs": "coast_km_z",
+      "k": 2,
+      "aic": 294.4125227353,
+      "r2m": 0.258239589251639,
+      "r2c": 0.811101904149292,
+      "coast_per_km": -0.573544433209796,
+      "coast_se": 0.142675408709131,
+      "coast_p": 0.000307365418280757,
+      "elev_per_10m": null,
+      "elev_se": null,
+      "elev_p": null,
+      "imperv_per_10pp": null,
+      "imperv_p": null,
+      "height_per_m": null,
+      "height_p": null,
+      "lrt_chi2": 14.0237277319021,
+      "lrt_df": 1,
+      "lrt_p": 0.000180518268302631,
+      "converged": true,
+      "lrt_elev_given_coast_chi2": null,
+      "lrt_elev_given_coast_p": null,
+      "lrt_coast_given_elev_chi2": null,
+      "lrt_coast_given_elev_p": null,
+      "lrt_elev_given_model_chi2": null,
+      "lrt_elev_given_model_p": null,
+      "delta_aic_vs_without": null,
+      "delta_aic_vs_null": -12.0237277319021
+    },
+    {
+      "scope": "Honolulu",
+      "model": "coast + elevation",
+      "rhs": "coast_km_z + elev_m_z",
+      "k": 3,
+      "aic": 296.358146878116,
+      "r2m": 0.254913087366744,
+      "r2c": 0.814445821445522,
+      "coast_per_km": -0.548903245501167,
+      "coast_se": 0.182399753913458,
+      "coast_p": 0.00499514586504955,
+      "elev_per_10m": -0.0341236333804404,
+      "elev_se": 0.153302239304771,
+      "elev_p": 0.825236330083515,
+      "imperv_per_10pp": null,
+      "imperv_p": null,
+      "height_per_m": null,
+      "height_p": null,
+      "lrt_chi2": 14.0781035890861,
+      "lrt_df": 2,
+      "lrt_p": 0.000876957704229965,
+      "converged": true,
+      "lrt_elev_given_coast_chi2": 0.0543758571839703,
+      "lrt_elev_given_coast_p": 0.815616732547253,
+      "lrt_coast_given_elev_chi2": 8.74390507863308,
+      "lrt_coast_given_elev_p": 0.00310638564742372,
+      "lrt_elev_given_model_chi2": null,
+      "lrt_elev_given_model_p": null,
+      "delta_aic_vs_without": null,
+      "delta_aic_vs_null": -10.0781035890861
+    },
+    {
+      "scope": "Honolulu",
+      "model": "best subset (imperv + coast)",
+      "rhs": "imperv_z + coast_km_z",
+      "k": 3,
+      "aic": 289.712219493509,
+      "r2m": 0.341563384558294,
+      "r2c": 0.811154860660039,
+      "coast_per_km": -0.615266597471537,
+      "coast_se": 0.133053668151107,
+      "coast_p": 5.55024892554119e-05,
+      "elev_per_10m": null,
+      "elev_se": null,
+      "elev_p": null,
+      "imperv_per_10pp": 0.0953001409535686,
+      "imperv_p": 0.0139520530902363,
+      "height_per_m": null,
+      "height_p": null,
+      "lrt_chi2": 20.7240309736937,
+      "lrt_df": 2,
+      "lrt_p": 3.16106810413063e-05,
+      "converged": true,
+      "lrt_elev_given_coast_chi2": null,
+      "lrt_elev_given_coast_p": null,
+      "lrt_coast_given_elev_chi2": null,
+      "lrt_coast_given_elev_p": null,
+      "lrt_elev_given_model_chi2": null,
+      "lrt_elev_given_model_p": null,
+      "delta_aic_vs_without": null,
+      "delta_aic_vs_null": -16.7240309736937
+    },
+    {
+      "scope": "Honolulu",
+      "model": "best subset (imperv + coast) + elevation",
+      "rhs": "imperv_z + coast_km_z + elev_m_z",
+      "k": 4,
+      "aic": 291.531930996312,
+      "r2m": 0.339264783183728,
+      "r2c": 0.814153456472281,
+      "coast_per_km": -0.574596739773977,
+      "coast_se": 0.168911145734792,
+      "coast_p": 0.00181348657047417,
+      "elev_per_10m": -0.0567829626133117,
+      "elev_se": 0.14195014701398,
+      "elev_p": 0.691812720022898,
+      "imperv_per_10pp": 0.0962273583860955,
+      "imperv_p": 0.0145556220280932,
+      "height_per_m": null,
+      "height_p": null,
+      "lrt_chi2": 20.90431947089,
+      "lrt_df": 3,
+      "lrt_p": 0.000110204306836092,
+      "converged": true,
+      "lrt_elev_given_coast_chi2": null,
+      "lrt_elev_given_coast_p": null,
+      "lrt_coast_given_elev_chi2": null,
+      "lrt_coast_given_elev_p": null,
+      "lrt_elev_given_model_chi2": 0.180288497196329,
+      "lrt_elev_given_model_p": 0.671125427774951,
+      "delta_aic_vs_without": 1.81971150280367,
+      "delta_aic_vs_null": -14.90431947089
+    },
+    {
+      "scope": "Honolulu",
+      "model": "full (eight descriptors)",
+      "rhs": "imperv_z + tree_z + bldg_z + water_z + height_z + svf_point_z + aspect_z + coast_km_z",
+      "k": 9,
+      "aic": 294.385615981473,
+      "r2m": 0.391156593516853,
+      "r2c": 0.825112163024878,
+      "coast_per_km": -0.52955281550426,
+      "coast_se": 0.150809260367222,
+      "coast_p": 0.00158799039513559,
+      "elev_per_10m": null,
+      "elev_se": null,
+      "elev_p": null,
+      "imperv_per_10pp": 0.181720642534866,
+      "imperv_p": 0.016418315546391,
+      "height_per_m": -0.0226842952319214,
+      "height_p": 0.443959195825309,
+      "lrt_chi2": 28.050634485729,
+      "lrt_df": 8,
+      "lrt_p": 0.000464715900397857,
+      "converged": true,
+      "lrt_elev_given_coast_chi2": null,
+      "lrt_elev_given_coast_p": null,
+      "lrt_coast_given_elev_chi2": null,
+      "lrt_coast_given_elev_p": null,
+      "lrt_elev_given_model_chi2": null,
+      "lrt_elev_given_model_p": null,
+      "delta_aic_vs_without": null,
+      "delta_aic_vs_null": -12.050634485729
+    },
+    {
+      "scope": "Honolulu",
+      "model": "full (eight descriptors) + elevation",
+      "rhs": "imperv_z + tree_z + bldg_z + water_z + height_z + svf_point_z + aspect_z + coast_km_z + elev_m_z",
+      "k": 10,
+      "aic": 296.147030433561,
+      "r2m": 0.387535819737394,
+      "r2c": 0.828169647782979,
+      "coast_per_km": -0.491841591909295,
+      "coast_se": 0.178345976534541,
+      "coast_p": 0.0105090449213651,
+      "elev_per_10m": -0.0613793612742599,
+      "elev_se": 0.148467823438091,
+      "elev_p": 0.682704530232587,
+      "imperv_per_10pp": 0.183904228636717,
+      "imperv_p": 0.0172778707722751,
+      "height_per_m": -0.0247357888639811,
+      "height_p": 0.418165271987801,
+      "lrt_chi2": 28.2892200336414,
+      "lrt_df": 9,
+      "lrt_p": 0.000853286453553948,
+      "converged": true,
+      "lrt_elev_given_coast_chi2": null,
+      "lrt_elev_given_coast_p": null,
+      "lrt_coast_given_elev_chi2": null,
+      "lrt_coast_given_elev_p": null,
+      "lrt_elev_given_model_chi2": 0.238585547912351,
+      "lrt_elev_given_model_p": 0.625229578146273,
+      "delta_aic_vs_without": 1.76141445208765,
+      "delta_aic_vs_null": -10.2892200336414
+    },
+    {
+      "scope": "Ewa",
+      "model": "null",
+      "rhs": "1",
+      "k": 1,
+      "aic": 365.135994560014,
+      "r2m": 0,
+      "r2c": 0.364682227502537,
+      "coast_per_km": null,
+      "coast_se": null,
+      "coast_p": null,
+      "elev_per_10m": null,
+      "elev_se": null,
+      "elev_p": null,
+      "imperv_per_10pp": null,
+      "imperv_p": null,
+      "height_per_m": null,
+      "height_p": null,
+      "lrt_chi2": null,
+      "lrt_df": null,
+      "lrt_p": null,
+      "converged": true,
+      "lrt_elev_given_coast_chi2": null,
+      "lrt_elev_given_coast_p": null,
+      "lrt_coast_given_elev_chi2": null,
+      "lrt_coast_given_elev_p": null,
+      "lrt_elev_given_model_chi2": null,
+      "lrt_elev_given_model_p": null,
+      "delta_aic_vs_without": null,
+      "delta_aic_vs_null": 0
+    },
+    {
+      "scope": "Ewa",
+      "model": "elevation only",
+      "rhs": "elev_m_z",
+      "k": 2,
+      "aic": 366.76460325429,
+      "r2m": 0.0049200844129688,
+      "r2c": 0.373638820161204,
+      "coast_per_km": null,
+      "coast_se": null,
+      "coast_p": null,
+      "elev_per_10m": -0.0755070254026923,
+      "elev_se": 0.126984303166528,
+      "elev_p": 0.555818542868925,
+      "imperv_per_10pp": null,
+      "imperv_p": null,
+      "height_per_m": null,
+      "height_p": null,
+      "lrt_chi2": 0.371391305724103,
+      "lrt_df": 1,
+      "lrt_p": 0.542246862384527,
+      "converged": true,
+      "lrt_elev_given_coast_chi2": null,
+      "lrt_elev_given_coast_p": null,
+      "lrt_coast_given_elev_chi2": null,
+      "lrt_coast_given_elev_p": null,
+      "lrt_elev_given_model_chi2": null,
+      "lrt_elev_given_model_p": null,
+      "delta_aic_vs_without": null,
+      "delta_aic_vs_null": 1.6286086942759
+    },
+    {
+      "scope": "Ewa",
+      "model": "coast only",
+      "rhs": "coast_km_z",
+      "k": 2,
+      "aic": 367.093989746542,
+      "r2m": 0.000558763930890226,
+      "r2c": 0.373771571954782,
+      "coast_per_km": -0.0169117023023224,
+      "coast_se": 0.0847536305588136,
+      "coast_p": 0.842963524884054,
+      "elev_per_10m": null,
+      "elev_se": null,
+      "elev_p": null,
+      "imperv_per_10pp": null,
+      "imperv_p": null,
+      "height_per_m": null,
+      "height_p": null,
+      "lrt_chi2": 0.0420048134721469,
+      "lrt_df": 1,
+      "lrt_p": 0.837610597185205,
+      "converged": true,
+      "lrt_elev_given_coast_chi2": null,
+      "lrt_elev_given_coast_p": null,
+      "lrt_coast_given_elev_chi2": null,
+      "lrt_coast_given_elev_p": null,
+      "lrt_elev_given_model_chi2": null,
+      "lrt_elev_given_model_p": null,
+      "delta_aic_vs_without": null,
+      "delta_aic_vs_null": 1.95799518652785
+    },
+    {
+      "scope": "Ewa",
+      "model": "coast + elevation",
+      "rhs": "coast_km_z + elev_m_z",
+      "k": 3,
+      "aic": 368.720352568199,
+      "r2m": 0.00542197598742976,
+      "r2c": 0.382872904666834,
+      "coast_per_km": 0.021795130538616,
+      "coast_se": 0.107927172900812,
+      "coast_p": 0.841130538704624,
+      "elev_per_10m": -0.0955081577761221,
+      "elev_se": 0.162407010259831,
+      "elev_p": 0.560255020876719,
+      "imperv_per_10pp": null,
+      "imperv_p": null,
+      "height_per_m": null,
+      "height_p": null,
+      "lrt_chi2": 0.415641991814823,
+      "lrt_df": 2,
+      "lrt_p": 0.812352438108874,
+      "converged": true,
+      "lrt_elev_given_coast_chi2": 0.373637178342676,
+      "lrt_elev_given_coast_p": 0.541028338786519,
+      "lrt_coast_given_elev_chi2": 0.0442506860907201,
+      "lrt_coast_given_elev_p": 0.833387903207466,
+      "lrt_elev_given_model_chi2": null,
+      "lrt_elev_given_model_p": null,
+      "delta_aic_vs_without": null,
+      "delta_aic_vs_null": 3.58435800818518
+    },
+    {
+      "scope": "Ewa",
+      "model": "best subset (imperv + height + aspect)",
+      "rhs": "imperv_z + height_z + aspect_z",
+      "k": 4,
+      "aic": 336.16487543722,
+      "r2m": 0.304981897548416,
+      "r2c": 0.372306158474334,
+      "coast_per_km": null,
+      "coast_se": null,
+      "coast_p": null,
+      "elev_per_10m": null,
+      "elev_se": null,
+      "elev_p": null,
+      "imperv_per_10pp": 0.166268980308542,
+      "imperv_p": 5.59908629698007e-05,
+      "height_per_m": 0.131370292179944,
+      "height_p": 7.69442325463485e-05,
+      "lrt_chi2": 34.9711191227941,
+      "lrt_df": 3,
+      "lrt_p": 1.23548626100166e-07,
+      "converged": true,
+      "lrt_elev_given_coast_chi2": null,
+      "lrt_elev_given_coast_p": null,
+      "lrt_coast_given_elev_chi2": null,
+      "lrt_coast_given_elev_p": null,
+      "lrt_elev_given_model_chi2": null,
+      "lrt_elev_given_model_p": null,
+      "delta_aic_vs_without": null,
+      "delta_aic_vs_null": -28.9711191227941
+    },
+    {
+      "scope": "Ewa",
+      "model": "best subset (imperv + height + aspect) + elevation",
+      "rhs": "imperv_z + height_z + aspect_z + elev_m_z",
+      "k": 5,
+      "aic": 337.473832816588,
+      "r2m": 0.306698167298951,
+      "r2c": 0.376218196820736,
+      "coast_per_km": null,
+      "coast_se": null,
+      "coast_p": null,
+      "elev_per_10m": -0.0702322063157145,
+      "elev_se": 0.0902487682314476,
+      "elev_p": 0.441991377100103,
+      "imperv_per_10pp": 0.167163479451488,
+      "imperv_p": 6.00464731559844e-05,
+      "height_per_m": 0.132803540351015,
+      "height_p": 7.79702937504374e-05,
+      "lrt_chi2": 35.6621617434261,
+      "lrt_df": 4,
+      "lrt_p": 3.39574617001875e-07,
+      "converged": true,
+      "lrt_elev_given_coast_chi2": null,
+      "lrt_elev_given_coast_p": null,
+      "lrt_coast_given_elev_chi2": null,
+      "lrt_coast_given_elev_p": null,
+      "lrt_elev_given_model_chi2": 0.691042620631947,
+      "lrt_elev_given_model_p": 0.405809973061189,
+      "delta_aic_vs_without": 1.30895737936805,
+      "delta_aic_vs_null": -27.6621617434261
+    },
+    {
+      "scope": "Ewa",
+      "model": "full (eight descriptors)",
+      "rhs": "imperv_z + tree_z + bldg_z + water_z + height_z + svf_point_z + aspect_z + coast_km_z",
+      "k": 9,
+      "aic": 339.662962935475,
+      "r2m": 0.327229246653365,
+      "r2c": 0.390043519214391,
+      "coast_per_km": -0.0452055462589718,
+      "coast_se": 0.0699572942660274,
+      "coast_p": 0.523238977170373,
+      "elev_per_10m": null,
+      "elev_se": null,
+      "elev_p": null,
+      "imperv_per_10pp": 0.129855460407663,
+      "imperv_p": 0.0119686124493968,
+      "height_per_m": 0.124550458276182,
+      "height_p": 0.000346785134388808,
+      "lrt_chi2": 41.4730316245389,
+      "lrt_df": 8,
+      "lrt_p": 1.70018833988109e-06,
+      "converged": true,
+      "lrt_elev_given_coast_chi2": null,
+      "lrt_elev_given_coast_p": null,
+      "lrt_coast_given_elev_chi2": null,
+      "lrt_coast_given_elev_p": null,
+      "lrt_elev_given_model_chi2": null,
+      "lrt_elev_given_model_p": null,
+      "delta_aic_vs_without": null,
+      "delta_aic_vs_null": -25.4730316245389
+    },
+    {
+      "scope": "Ewa",
+      "model": "full (eight descriptors) + elevation",
+      "rhs": "imperv_z + tree_z + bldg_z + water_z + height_z + svf_point_z + aspect_z + coast_km_z + elev_m_z",
+      "k": 10,
+      "aic": 340.659381144531,
+      "r2m": 0.329501219297577,
+      "r2c": 0.393794862144564,
+      "coast_per_km": -0.0134201008483472,
+      "coast_se": 0.0792778641524457,
+      "coast_p": 0.866794006538832,
+      "elev_per_10m": -0.09286130564175,
+      "elev_se": 0.107274730187273,
+      "elev_p": 0.39404434253617,
+      "imperv_per_10pp": 0.132047192369717,
+      "imperv_p": 0.0113225932691484,
+      "height_per_m": 0.125079620210056,
+      "height_p": 0.000366091611730683,
+      "lrt_chi2": 42.4766134154836,
+      "lrt_df": 9,
+      "lrt_p": 2.68864164060357e-06,
+      "converged": true,
+      "lrt_elev_given_coast_chi2": null,
+      "lrt_elev_given_coast_p": null,
+      "lrt_coast_given_elev_chi2": null,
+      "lrt_coast_given_elev_p": null,
+      "lrt_elev_given_model_chi2": 1.00358179094474,
+      "lrt_elev_given_model_p": 0.316445368687598,
+      "delta_aic_vs_without": 0.996418209055264,
+      "delta_aic_vs_null": -24.4766134154836
+    }
+  ],
+  "interaction": {
+    "lrt_chi2": 0.869336927835093,
+    "df": 1,
+    "p": 0.351138940447291,
+    "ewa_slope_per_10m": 0.00796475573772111,
+    "hnl_slope_per_10m": -0.148822500962986
+  },
+  "subsets": {
+    "Honolulu": {
+      "n_models": 130,
+      "best": "imperv + coast_km",
+      "best_aic": 289.712219493509,
+      "best_r2m": 0.35618199322173,
+      "original_best": "imperv + coast_km",
+      "original_rank": 1,
+      "original_delta_aic": 0,
+      "elevation_importance": 0.111942820656141,
+      "coast_importance": 0.99134923240841,
+      "best_with_elevation": "imperv + coast_km + elev_m",
+      "best_with_elevation_rank": 5,
+      "best_with_elevation_delta_aic": 1.81971150280367,
+      "n_within_2": 8,
+      "top5": [
+        {
+          "region": "Honolulu",
+          "predictors": "imperv + coast_km",
+          "k": 2,
+          "aic": 289.712219493509,
+          "r2m": 0.35618199322173,
+          "delta_aic": 0,
+          "weight": 0.161349437739807,
+          "rank": 1
+        },
+        {
+          "region": "Honolulu",
+          "predictors": "imperv + bldg + coast_km",
+          "k": 3,
+          "aic": 289.79800178446,
+          "r2m": 0.37810874318841,
+          "delta_aic": 0.0857822909509878,
+          "weight": 0.154575289495739,
+          "rank": 2
+        },
+        {
+          "region": "Honolulu",
+          "predictors": "imperv + aspect + coast_km",
+          "k": 3,
+          "aic": 291.322954126867,
+          "r2m": 0.362567674614419,
+          "delta_aic": 1.6107346333585,
+          "weight": 0.0721108931715386,
+          "rank": 3
+        },
+        {
+          "region": "Honolulu",
+          "predictors": "imperv + height + coast_km",
+          "k": 3,
+          "aic": 291.48707527957,
+          "r2m": 0.360087517299652,
+          "delta_aic": 1.7748557860611,
+          "weight": 0.0664297196035711,
+          "rank": 4
+        },
+        {
+          "region": "Honolulu",
+          "predictors": "imperv + coast_km + elev_m",
+          "k": 3,
+          "aic": 291.531930996312,
+          "r2m": 0.359130246382906,
+          "delta_aic": 1.81971150280367,
+          "weight": 0.0649564264221695,
+          "rank": 5
+        }
+      ]
+    },
+    "Ewa": {
+      "n_models": 130,
+      "best": "imperv + height + aspect",
+      "best_aic": 336.16487543722,
+      "best_r2m": 0.312355045655799,
+      "original_best": "imperv + height + aspect",
+      "original_rank": 1,
+      "original_delta_aic": 0,
+      "elevation_importance": 0.0182845055508327,
+      "coast_importance": 0.0219274182355847,
+      "best_with_elevation": "imperv + height + elev_m",
+      "best_with_elevation_rank": 8,
+      "best_with_elevation_delta_aic": 7.43982549369935,
+      "n_within_2": 1,
+      "top5": [
+        {
+          "region": "Ewa",
+          "predictors": "imperv + height + aspect",
+          "k": 3,
+          "aic": 336.16487543722,
+          "r2m": 0.312355045655799,
+          "delta_aic": 0,
+          "weight": 0.652154905415196,
+          "rank": 1
+        },
+        {
+          "region": "Ewa",
+          "predictors": "imperv + tree + height",
+          "k": 3,
+          "aic": 339.545369173747,
+          "r2m": 0.293146994234989,
+          "delta_aic": 3.38049373652706,
+          "weight": 0.120305609413766,
+          "rank": 2
+        },
+        {
+          "region": "Ewa",
+          "predictors": "imperv + bldg + height",
+          "k": 3,
+          "aic": 341.384299235149,
+          "r2m": 0.281955696666413,
+          "delta_aic": 5.21942379792938,
+          "weight": 0.0479697315712697,
+          "rank": 3
+        },
+        {
+          "region": "Ewa",
+          "predictors": "imperv + height",
+          "k": 2,
+          "aic": 341.636123414928,
+          "r2m": 0.267490625423416,
+          "delta_aic": 5.47124797770772,
+          "weight": 0.042294545504204,
+          "rank": 4
+        },
+        {
+          "region": "Ewa",
+          "predictors": "imperv + height + svf_point",
+          "k": 3,
+          "aic": 341.666363777748,
+          "r2m": 0.280190554236563,
+          "delta_aic": 5.50148834052811,
+          "weight": 0.0416598547153175,
+          "rank": 5
+        }
+      ]
+    }
+  },
+  "loso": [
+    {
+      "scope": "pooled",
+      "model": "parsimonious",
+      "rmse": 0.627663557849851,
+      "mae": 0.486775856349556,
+      "r": 0.35647587849259,
+      "r2_cv": 0.114630930080101
+    },
+    {
+      "scope": "pooled",
+      "model": "parsimonious + elevation",
+      "rmse": 0.616623719040084,
+      "mae": 0.479529136145661,
+      "r": 0.400467556274756,
+      "r2_cv": 0.145502158437498
+    },
+    {
+      "scope": "pooled",
+      "model": "full",
+      "rmse": 0.634703286083981,
+      "mae": 0.491095520909462,
+      "r": 0.391030696525089,
+      "r2_cv": 0.0946593700315624
+    },
+    {
+      "scope": "pooled",
+      "model": "full + elevation",
+      "rmse": 0.637349010531478,
+      "mae": 0.500031415777357,
+      "r": 0.387859102411456,
+      "r2_cv": 0.0870959173489964
+    },
+    {
+      "scope": "Honolulu",
+      "model": "best subset (imperv + coast)",
+      "rmse": 0.591851192777345,
+      "mae": 0.474026842399844,
+      "r": 0.577812437207982,
+      "r2_cv": 0.325529012231491
+    },
+    {
+      "scope": "Honolulu",
+      "model": "best subset (imperv + coast) + elevation",
+      "rmse": 0.598920419114305,
+      "mae": 0.480582928494526,
+      "r": 0.565539239729935,
+      "r2_cv": 0.309320670740713
+    },
+    {
+      "scope": "Honolulu",
+      "model": "full",
+      "rmse": 0.636463327052819,
+      "mae": 0.529261751329762,
+      "r": 0.53840394087992,
+      "r2_cv": 0.220017267325878
+    },
+    {
+      "scope": "Honolulu",
+      "model": "full + elevation",
+      "rmse": 0.647891331782251,
+      "mae": 0.539998944022696,
+      "r": 0.524191990816154,
+      "r2_cv": 0.191755872281161
+    },
+    {
+      "scope": "Honolulu",
+      "model": "elevation only",
+      "rmse": 0.701970151838321,
+      "mae": 0.55725215117968,
+      "r": 0.270176720244161,
+      "r2_cv": 0.0511981756361386
+    },
+    {
+      "scope": "Ewa",
+      "model": "best subset (imperv + height + aspect)",
+      "rmse": 0.435383488321573,
+      "mae": 0.363922282948508,
+      "r": 0.705102560178936,
+      "r2_cv": 0.491437211266539
+    },
+    {
+      "scope": "Ewa",
+      "model": "best subset (imperv + height + aspect) + elevation",
+      "rmse": 0.451003532713439,
+      "mae": 0.372012814277555,
+      "r": 0.681894665828218,
+      "r2_cv": 0.454291701507274
+    },
+    {
+      "scope": "Ewa",
+      "model": "full",
+      "rmse": 0.470845081505236,
+      "mae": 0.389268377991334,
+      "r": 0.649013511446784,
+      "r2_cv": 0.405219465526698
+    },
+    {
+      "scope": "Ewa",
+      "model": "full + elevation",
+      "rmse": 0.48134063474714,
+      "mae": 0.39208671447597,
+      "r": 0.638978687493186,
+      "r2_cv": 0.378407560706035
+    },
+    {
+      "scope": "Ewa",
+      "model": "elevation only",
+      "rmse": 0.658090887409863,
+      "mae": 0.508247419883636,
+      "r": -0.452911074879162,
+      "r2_cv": -0.161909827354255
+    }
+  ]
+}

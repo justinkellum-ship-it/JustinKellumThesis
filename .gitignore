@@ -1,0 +1,20 @@
+# large inputs, downloaded separately (see README)
+data/external/ccap/
+data/external/buildings_oahu.gpkg
+data/external/gshhg/
+data/external/gshhg-shp.zip
+
+# caches and build products
+results/cache/
+replication/results/cache/
+replication/results/figures/
+walkthrough/*_cache/
+walkthrough/*_files/
+__pycache__/
+*.pyc
+.Rhistory
+.RData
+.Rproj.user/
+*.Rproj
+.DS_Store
+Thumbs.db

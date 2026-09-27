@@ -1,0 +1,272 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Island Urban Climatology — nocturnal heat in leeward coastal Oʻahu</title>
+<meta name="description" content="Measuring and modeling nocturnal heat in leeward coastal Oʻahu, Hawaiʻi: a 100-station low-cost sensor network, mixed-effects models of urban form, and a fully reproducible analysis. M.A. thesis, University of Hawaiʻi at Mānoa, 2026.">
+<meta property="og:title" content="Island Urban Climatology — nocturnal heat in leeward coastal Oʻahu">
+<meta property="og:description" content="Which properties of the built environment control where the night air is warmer in Honolulu and ʻEwa? Data, code, figures and the thesis.">
+<meta property="og:image" content="https://justinkellum-ship-it.github.io/JustinKellumThesis/figures/T16_dT_maps.jpg">
+<meta property="og:type" content="website">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='14' fill='%23b8432a'/%3E%3Ccircle cx='16' cy='16' r='7' fill='%23f6e7c8'/%3E%3C/svg%3E">
+<style>
+  :root {
+    --bg: #faf8f3; --surface: #ffffff; --ink: #1f2328; --muted: #5c6470; --line: #e3ddd2;
+    --accent: #0f5c6b; --accent-ink: #0b4552; --warm: #b8432a; --warm-soft: #f6e7c8; --code: #f1eee7;
+    --shadow: 0 1px 2px rgba(20,20,20,.06), 0 8px 24px rgba(20,20,20,.06);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #15181c; --surface: #1d2126; --ink: #e8e6e1; --muted: #a3a9b3; --line: #2f353d;
+      --accent: #5fb7c8; --accent-ink: #8fd0dc; --warm: #e8875f; --warm-soft: #3a2a1c; --code: #23282e;
+      --shadow: 0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.35);
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #15181c; --surface: #1d2126; --ink: #e8e6e1; --muted: #a3a9b3; --line: #2f353d;
+    --accent: #5fb7c8; --accent-ink: #8fd0dc; --warm: #e8875f; --warm-soft: #3a2a1c; --code: #23282e;
+    --shadow: 0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.35);
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 17px/1.6 Georgia, "Iowan Old Style", "Palatino Linotype", "Book Antiqua", serif; }
+  a { color: var(--accent-ink); text-decoration-thickness: 1px; text-underline-offset: 3px; }
+  a:hover { color: var(--warm); }
+  h1, h2, h3 { line-height: 1.2; letter-spacing: -.01em; font-weight: 600; }
+  h1 { font-size: clamp(2rem, 5vw, 3.1rem); margin: 0 0 .4rem; }
+  h2 { font-size: clamp(1.45rem, 3vw, 1.9rem); margin: 0 0 1rem; padding-top: .5rem; }
+  h3 { font-size: 1.15rem; margin: 1.4rem 0 .4rem; }
+  p { margin: 0 0 1rem; }
+  code, pre { font: 0.9em/1.5 ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace; }
+  code { background: var(--code); padding: .1em .35em; border-radius: 4px; }
+  pre { background: var(--code); padding: 1rem 1.1rem; border-radius: 8px; overflow-x: auto; margin: 0 0 1rem; }
+  pre code { background: none; padding: 0; }
+  .wrap { max-width: 1120px; margin: 0 auto; padding: 0 16px; }
+  .prose { max-width: 72ch; }
+  nav.top { position: sticky; top: 0; z-index: 5; background: color-mix(in srgb, var(--bg) 92%, transparent); backdrop-filter: blur(8px); border-bottom: 1px solid var(--line); }
+  nav.top .wrap { display: flex; flex-wrap: wrap; gap: .2rem 1.2rem; align-items: center; padding-top: .55rem; padding-bottom: .55rem; font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; font-size: .92rem; }
+  nav.top .brand { font-weight: 600; margin-right: auto; color: var(--ink); text-decoration: none; }
+  nav.top a:not(.brand) { color: var(--muted); text-decoration: none; }
+  nav.top a:not(.brand):hover { color: var(--warm); }
+  header.hero { padding: 3rem 0 2rem; border-bottom: 1px solid var(--line); }
+  .kicker { font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; text-transform: uppercase; letter-spacing: .12em; font-size: .78rem; color: var(--warm); margin-bottom: .8rem; }
+  .sub { font-size: clamp(1.1rem, 2.2vw, 1.4rem); color: var(--muted); margin: 0 0 1.2rem; max-width: 40ch; }
+  .byline { font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; font-size: .95rem; color: var(--muted); max-width: 70ch; }
+  .actions { display: flex; flex-wrap: wrap; gap: .6rem; margin: 1.4rem 0 0; }
+  .btn { display: inline-block; font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; font-size: .95rem; font-weight: 600; padding: .6rem 1rem; border-radius: 8px; text-decoration: none; border: 1px solid var(--accent); color: var(--accent-ink); background: var(--surface); }
+  .btn.primary { background: var(--accent); color: #fff; }
+  .btn.primary:hover { background: var(--accent-ink); color: #fff; }
+  .btn:hover { border-color: var(--warm); color: var(--warm); }
+  .facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin: 2rem 0 0; }
+  .fact { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: .8rem 1rem; box-shadow: var(--shadow); }
+  .fact b { display: block; font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; font-size: 1.6rem; line-height: 1.1; color: var(--warm); }
+  .fact span { font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; font-size: .82rem; color: var(--muted); }
+  section { padding: 2.6rem 0; border-bottom: 1px solid var(--line); }
+  section:last-of-type { border-bottom: 0; }
+  .photos { display: grid; grid-template-columns: 1fr; gap: 16px; margin-top: 1rem; }
+  @media (min-width: 760px) { .photos { grid-template-columns: 1fr 1fr; } }
+  figure { margin: 0; }
+  figure img { width: 100%; height: auto; display: block; border-radius: 8px; border: 1px solid var(--line); background: #fff; }
+  figcaption { font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; font-size: .88rem; color: var(--muted); margin-top: .5rem; line-height: 1.5; }
+  figcaption b { color: var(--ink); }
+  .findings { counter-reset: f; list-style: none; padding: 0; margin: 0; display: grid; grid-template-columns: 1fr; gap: 14px; }
+  @media (min-width: 760px) { .findings { grid-template-columns: 1fr 1fr; } }
+  .findings li { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 1rem 1.1rem 1rem 3.2rem; position: relative; box-shadow: var(--shadow); }
+  .findings li::before { counter-increment: f; content: counter(f); position: absolute; left: 1rem; top: .95rem; width: 1.6rem; height: 1.6rem; border-radius: 50%; background: var(--warm-soft); color: var(--warm); font: 600 .95rem/1.6rem system-ui, sans-serif; text-align: center; }
+  .findings b { display: block; margin-bottom: .25rem; }
+  .gallery { display: grid; grid-template-columns: 1fr; gap: 20px; margin-top: 1rem; }
+  @media (min-width: 760px) { .gallery { grid-template-columns: 1fr 1fr; } .gallery .wide { grid-column: 1 / -1; } }
+  .gallery figure { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 12px; box-shadow: var(--shadow); }
+  .gallery figure img { border: 0; }
+  .steps { list-style: none; padding: 0; margin: 1rem 0; display: grid; gap: 10px; }
+  .steps li { display: grid; grid-template-columns: 2.2rem 1fr; gap: .6rem; align-items: start; }
+  .steps .n { font: 600 .95rem/1.7rem system-ui, sans-serif; background: var(--accent); color: #fff; border-radius: 6px; text-align: center; height: 1.7rem; }
+  table { border-collapse: collapse; width: 100%; font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; font-size: .9rem; margin: 0 0 1rem; }
+  th, td { text-align: left; vertical-align: top; padding: .5rem .6rem; border-bottom: 1px solid var(--line); }
+  th { color: var(--muted); font-weight: 600; }
+  .two { display: grid; grid-template-columns: 1fr; gap: 24px; }
+  @media (min-width: 900px) { .two { grid-template-columns: 1.2fr 1fr; } }
+  .two > * { min-width: 0; }
+  .box { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 1rem 1.2rem; box-shadow: var(--shadow); }
+  ul.plain { padding-left: 1.2rem; }
+  footer { padding: 2rem 0 3rem; color: var(--muted); font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; font-size: .88rem; }
+  .small { font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; font-size: .88rem; color: var(--muted); }
+  .theme { margin-left: .4rem; border: 1px solid var(--line); background: var(--surface); color: var(--muted); border-radius: 6px; padding: .2rem .5rem; font: inherit; cursor: pointer; }
+</style>
+</head>
+<body>
+<nav class="top"><div class="wrap">
+  <a class="brand" href="#top">Island Urban Climatology</a>
+  <a href="#abstract">Abstract</a>
+  <a href="#findings">Findings</a>
+  <a href="#figures">Figures</a>
+  <a href="#method">Method</a>
+  <a href="#data">Data &amp; code</a>
+  <a href="#cite">Cite</a>
+  <button class="theme" id="theme" type="button" aria-label="Toggle dark mode">◐</button>
+</div></nav>
+
+<header class="hero" id="top"><div class="wrap">
+  <div class="kicker">M.A. thesis · Geography · University of Hawaiʻi at Mānoa · 2026</div>
+  <h1>Island Urban Climatology</h1>
+  <p class="sub">Measuring and modeling nocturnal heat in leeward coastal Oʻahu, Hawaiʻi</p>
+  <p class="byline"><b>Justin Kellum</b>, Department of Geography and Environment, University of Hawaiʻi at Mānoa.
+    Thesis committee: Qi Chen (chairperson), Aurora Kagawa-Viviani, Yuqin Jiang.</p>
+  <div class="actions">
+    <a class="btn primary" href="Kellum_Thesis_2026.pdf">Read the thesis (PDF)</a>
+    <a class="btn" href="Analysis_walkthrough.html">Analysis walkthrough</a>
+    <a class="btn" href="https://github.com/justinkellum-ship-it/JustinKellumThesis">Data &amp; code on GitHub</a>
+    <a class="btn" href="#cite">How to cite</a>
+  </div>
+  <div class="facts">
+    <div class="fact"><b>100</b><span>low-cost logger stations deployed</span></div>
+    <div class="fact"><b>74</b><span>sites recovered: 36 Honolulu, 38 ʻEwa–Kapolei</span></div>
+    <div class="fact"><b>11</b><span>calm, clear nights (400 sensor-nights)</span></div>
+    <div class="fact"><b>3 °C</b><span>spread between the warmest and coolest sites of a district</span></div>
+    <div class="fact"><b>8</b><span>descriptors of urban form and setting, at 50, 100 and 200 m</span></div>
+  </div>
+</div></header>
+
+<section id="network"><div class="wrap">
+  <h2>A sensor network built with the community</h2>
+  <p class="prose">Between November 2024 and January 2025, one hundred Thermochron iButton loggers in polystyrene-cup radiation shields recorded air temperature every 30 minutes at about 1.5 m, on street-sign posts, poles and fences across two contrasting districts: the compact, partly high-rise core of Honolulu and the low-rise suburban plain of ʻEwa–Kapolei, 25 km apart on the same leeward coast. Residents allowed stations on their fences, and community volunteers helped deploy and recover them.</p>
+  <div class="photos">
+    <figure><img src="photos/station.jpg" alt="An iButton logger in a tea-bag sleeve inside an inverted white cup, and a station mounted on a street-sign post" loading="lazy">
+      <figcaption><b>The station.</b> A Thermochron iButton DS1921H logger suspended in a tea-bag sleeve inside an inverted white polystyrene cup that serves as a radiation shield, and a station on a street-sign post in Honolulu at about 1.5 m (circled).</figcaption></figure>
+    <figure><img src="photos/volunteers.jpg" alt="The author and volunteers attaching stations to a fence, a tree and a sign post" loading="lazy">
+      <figcaption><b>Deployment and recovery.</b> Stations were installed on public infrastructure by the author (left) and community volunteers.</figcaption></figure>
+  </div>
+</div></section>
+
+<section id="abstract"><div class="wrap">
+  <h2>Abstract</h2>
+  <div class="prose">
+  <p>Cities are warmer at night than their surroundings, and some streets warmer than others. The built-environment properties that control that pattern have been studied mostly in large continental cities; whether the same relationships hold in a small, humid, trade-wind island city was unknown, and no fixed air-temperature network had been operated in Hawaiʻi to find out. This thesis measured canopy-layer air temperature with 100 low-cost logger stations in two districts of leeward Oʻahu from November 2024 to January 2025: the compact, partly high-rise Honolulu core and the low-rise suburban plain of ʻEwa–Kapolei (74 recovered sites). On 11 calm, clear nights identified from ERA5, each site's night-mean departure from its district median (ΔT) was related by linear mixed-effects models to eight descriptors of urban form and setting from 1 m land cover, building footprints and the coastline: impervious, tree-canopy, building-footprint and water fractions, mean building height, sky view factor, canyon aspect ratio and distance to the coast.</p>
+  <p>Site means of ΔT spanned 3.4 °C in Honolulu and 3.0 °C in ʻEwa, and in Honolulu the pattern was highly repeatable between nights. Descriptors within 100 m of each sensor explained it best or nearly so. Pooled across districts, impervious fraction (+0.16 °C per 10 percentage points) and mean building height (+0.06 °C per meter) were the strongest predictors, and ΔT fell with distance from the coast (−0.18 °C per km). The drivers differed between districts (p &lt; 0.001): coastal distance (−0.53 °C per km) and impervious fraction dominated in Honolulu, building height (about 0.13 °C per meter) and impervious fraction in ʻEwa, where the coast had no effect. Urban form explained 25% of the variance of ΔT pooled and 33–39% within districts; a further 40% pooled was persistent site-level variation the descriptors did not capture. The relationships held under every alternative night-selection threshold and, although weaker, on all nights. Impervious cover and building mass drive nocturnal heat retention in a tropical maritime city as elsewhere, but the weight of building height, and the role of the coast, differ between neighborhood types 25 km apart. A single model should not be transferred across the island, and heat adaptation in Hawaiʻi should draw on ground-level air-temperature measurements.</p>
+  </div>
+</div></section>
+
+<section id="findings"><div class="wrap">
+  <h2>Six findings</h2>
+  <ol class="findings">
+    <li><b>Within a district, the night air differs by about 3 °C between sites.</b> On calm, clear winter nights the warmest and coolest sites of each district are about 3 °C apart at 1.5 m, as much as the whole heat island of many tropical coastal cities, and in the Honolulu core the pattern repeats from night to night.</li>
+    <li><b>Urban form explains a substantial but partial share of it.</b> The eight descriptors explain 25% of the variance pooled, 39% in Honolulu and 33% in ʻEwa, and two or three of them explain 31–36%. A 100 m source area is the right scale.</li>
+    <li><b>Impervious surface is the one driver common to both districts.</b> It warms the night air by about 0.1–0.2 °C per 10 percentage points. Building height warms the low-rise ʻEwa plain by about 0.13 °C per meter; tree canopy cooled the night air only slightly in this humid winter record; enclosure and water contribute little.</li>
+    <li><b>In Honolulu, position matters in a way the continental literature would not predict.</b> Night air is warmer by about half a degree per kilometer toward the shore, an effect that site elevation does not account for, with the coolest sites at the mouths of the Koʻolau valleys. On the ʻEwa plain distance to the coast has no effect. The drivers differ significantly between the two districts, and a model fitted to one predicts the other poorly: heat mapping on Oʻahu should be done district by district.</li>
+    <li><b>The results are robust to the choice of nights, and they depend on careful processing.</b> They hold under every alternative night-selection threshold and are present, although weaker, on all nights. The loggers' clocks must be aligned before the network reference is computed, and because each network is centered on its own median, the districts must be compared on absolute temperatures.</li>
+    <li><b>Low-cost loggers and a few weeks of volunteer effort measure what planning needs.</b> The network yields air temperature at 1.5 m across a district, which heat-adaptation planning needs and satellite surface temperature cannot provide. A summer deployment, a side-by-side comparison of the loggers and a terrain descriptor would most increase the value of the record.</li>
+  </ol>
+</div></section>
+
+<section id="figures"><div class="wrap">
+  <h2>Figures</h2>
+  <p class="prose small">A selection; every figure of the thesis, at full resolution (and as PDF for the statistical figures), is in <a href="https://github.com/justinkellum-ship-it/JustinKellumThesis/tree/main/results/figures">results/figures</a>. Click an image for the full-resolution version.</p>
+  <div class="gallery">
+    <figure class="wide"><a href="https://github.com/justinkellum-ship-it/JustinKellumThesis/blob/main/results/figures/T01_study_area.png"><img src="figures/T01_study_area.jpg" alt="Map of Oʻahu with the two study domains, and detail maps of the Honolulu core and the ʻEwa plain with the sensor sites" loading="lazy"></a>
+      <figcaption><b>Figure 1. The study area.</b> (A) Oʻahu, with impervious surface and tree canopy from the 2021 NOAA C-CAP 1 m land cover, the Koʻolau and Waiʻanae ranges, the prevailing north-east trade-wind flow, and the two study domains. (B) The Honolulu core and (C) the ʻEwa plain at the same map scale, showing building footprints (FEMA), paved surfaces, tree canopy, water and the 74 recovered sensor sites.</figcaption></figure>
+    <figure><a href="https://github.com/justinkellum-ship-it/JustinKellumThesis/blob/main/results/figures/T03_night_selection.png"><img src="figures/T03_night_selection.jpg" alt="Time series of network median temperature, wind speed and cloud cover through both deployments with the selected nights shaded" loading="lazy"></a>
+      <figcaption><b>Figure 5. Night selection.</b> Network median air temperature and the 10th–90th percentile range of sensors through each deployment; selected calm, clear nights shaded yellow, nights excluded by the completeness rules red. Below, night-mean ERA5 10 m wind speed and cloud cover for every night, with the thresholds of 10 km h⁻¹ and 25%.</figcaption></figure>
+    <figure><a href="https://github.com/justinkellum-ship-it/JustinKellumThesis/blob/main/results/figures/T05_dT_definition.png"><img src="figures/T05_dT_definition.jpg" alt="Every sensor's temperature through one 24-hour cycle in each district, the network median, and the departures from it" loading="lazy"></a>
+      <figcaption><b>Figure 8. How the response variable is defined,</b> on the shared night of 21 December 2024: every sensor's air temperature through the 24-hour cycle (gray), the network median (black), the warmest and coolest sites (red, blue), and the corresponding departures ΔT = T − median. The shaded band is the night window (18:00–06:00 HST).</figcaption></figure>
+    <figure class="wide"><a href="https://github.com/justinkellum-ship-it/JustinKellumThesis/blob/main/results/figures/T16_dT_maps.png"><img src="figures/T16_dT_maps.jpg" alt="Maps of site-mean nocturnal temperature departure in Honolulu and ʻEwa on the urban-form base map" loading="lazy"></a>
+      <figcaption><b>Figure 11. The observed pattern.</b> Site-mean nocturnal departure from the district median, ΔT, on calm, clear nights, in (a) Honolulu and (b) ʻEwa, on the urban-form base map.</figcaption></figure>
+    <figure><a href="https://github.com/justinkellum-ship-it/JustinKellumThesis/blob/main/results/figures/T19_night_stability.png"><img src="figures/T19_night_stability.jpg" alt="Correlation matrices of site departures between each pair of analyzed nights" loading="lazy"></a>
+      <figcaption><b>Figure 12. Night-to-night repeatability.</b> Correlation of site ΔT between each pair of analyzed nights in (a) Honolulu and (b) ʻEwa, with each night's mean ERA5 wind speed.</figcaption></figure>
+    <figure><a href="https://github.com/justinkellum-ship-it/JustinKellumThesis/blob/main/results/figures/T12_coefficients.png"><img src="figures/T12_coefficients.jpg" alt="Standardized coefficients of the full models with confidence intervals, pooled and by district" loading="lazy"></a>
+      <figcaption><b>Figure 16. What the models say.</b> Standardized fixed effects (change in ΔT per one standard deviation of the descriptor, with 95% confidence intervals) of the full models, (a) pooled with district, (b) Honolulu and (c) ʻEwa; filled symbols are significant at p &lt; 0.05, and the smaller squares show the parsimonious or best-subset model of each panel.</figcaption></figure>
+    <figure><a href="https://github.com/justinkellum-ship-it/JustinKellumThesis/blob/main/results/figures/T13_interactions.png"><img src="figures/T13_interactions.jpg" alt="Site-mean departure against building height and against distance to the coast, with district-specific slopes" loading="lazy"></a>
+      <figcaption><b>Figure 17. Where the districts differ.</b> Site-mean ΔT against (a) mean building height and (b) distance to the coast, with the district-specific slopes from the interaction model.</figcaption></figure>
+    <figure><a href="https://github.com/justinkellum-ship-it/JustinKellumThesis/blob/main/results/figures/T20_elevation.png"><img src="figures/T20_elevation.jpg" alt="Site-mean departure against elevation, and elevation against distance to the coast" loading="lazy"></a>
+      <figcaption><b>Figure 19. The terrain check.</b> (a) Site-mean ΔT against the bare-earth elevation of each site (USGS 3DEP 1 m DEM), by district. (b) Elevation against distance to the coast. The Honolulu coastal gradient is not an elevation gradient: elevation spans only about 40 m and, given distance to the coast, explains nothing.</figcaption></figure>
+    <figure><a href="https://github.com/justinkellum-ship-it/JustinKellumThesis/blob/main/results/figures/T15_blups.png"><img src="figures/T15_blups.jpg" alt="Sorted random intercepts of the sites with confidence intervals, and the same values mapped" loading="lazy"></a>
+      <figcaption><b>Figure 21. The unexplained site effects.</b> (a) Random intercepts (BLUPs) of the full pooled model with 95% conditional intervals, sorted, and (b, c) the same values mapped. Positive values are sites warmer than their descriptors predict.</figcaption></figure>
+    <figure class="wide"><a href="https://github.com/justinkellum-ship-it/JustinKellumThesis/blob/main/results/figures/B2_terrain.png"><img src="figures/B2_terrain.jpg" alt="Shaded terrain of Oʻahu and of the Honolulu district with the sensor sites" loading="lazy"></a>
+      <figcaption><b>Figure B2. Terrain.</b> Oʻahu from the USGS 10 m digital elevation model (PacIOOS), with the study domains outlined, and the Honolulu district with the sensor sites colored by their site-mean ΔT, showing how steeply the Koʻolau range rises behind the leeward coast and where the sensors sit relative to the valley mouths.</figcaption></figure>
+  </div>
+</div></section>
+
+<section id="method"><div class="wrap">
+  <h2>How the analysis was done</h2>
+  <div class="two">
+    <div>
+      <p class="prose">Every number, table and figure in the thesis is produced from the logger readings by nine R scripts, run in order by a single command. The <a href="Analysis_walkthrough.html">walkthrough</a> shows the code of each step with its output and names the package that does it.</p>
+      <ol class="steps">
+        <li><span class="n">1</span><span><b>From readings to sensor-nights.</b> Every reading is snapped to the nearest 30-minute bin (the loggers' clocks differ by up to two minutes), the district network median is computed in each bin, ΔT = T − median, the ERA5 wind and cloud series are joined, and every night is classified: calm and clear means ERA5 10 m wind below 10 km h⁻¹ and cloud below 25% in at least 75% of the 24 night bins, with at least 20 loggers reporting. Result: 400 sensor-nights on 11 nights.</span></li>
+        <li><span class="n">2</span><span><b>Describing each site.</b> Eight descriptors within 50, 100 and 200 m of each logger from public data: impervious, tree-canopy and water fractions (NOAA C-CAP 1 m masks), building-footprint fraction, area-weighted mean building height and canyon aspect ratio (FEMA / ORNL USA Structures), a ray-cast sky view factor at the sensor, and distance to the GSHHG shoreline.</span></li>
+        <li><span class="n">3</span><span><b>Mixed-effects models.</b> Linear mixed models with a random intercept per site (lme4, Satterthwaite tests from lmerTest): scale selection by AIC, null models and ICC, single descriptors, the full pooled and district models, all 93 subsets of up to three descriptors with Akaike weights, district × descriptor interactions, a night effect, a 24-rule threshold sensitivity, leave-one-site-out cross-validation, the site random effects, and an absolute comparison of the districts on the two nights they share.</span></li>
+        <li><span class="n">4</span><span><b>Checks.</b> Site elevation added to the models (the coastal effect is not an elevation effect); the models without the warmest site; a different height for the buildings whose height the inventory does not record; the sky view factor of positions recorded inside footprints recomputed. No conclusion changes.</span></li>
+        <li><span class="n">5</span><span><b>An independent replication.</b> The pipeline was written a second time in Python (pandas, rasterio, Shapely, statsmodels) and compared quantity by quantity: ΔT agrees to machine precision, every coefficient and variance component to three decimals.</span></li>
+      </ol>
+    </div>
+    <div class="box">
+      <h3 style="margin-top:0">Scripts, in the order they run</h3>
+      <table>
+        <tr><th>Script</th><th>Does</th></tr>
+        <tr><td><code>00_prepare_inputs.R</code></td><td>binning, network median, ERA5 join, night selection, sensor-night table</td></tr>
+        <tr><td><code>01_site_predictors.R</code></td><td>the eight descriptors at three radii</td></tr>
+        <tr><td><code>02_models.R</code></td><td>every mixed-effects model and test; writes <code>thesis_results.json</code></td></tr>
+        <tr><td><code>03_figures.R</code></td><td>the figures of the main text</td></tr>
+        <tr><td><code>04_replication_check.R</code></td><td>R versus Python, quantity by quantity</td></tr>
+        <tr><td><code>05_thesis_tables.R</code></td><td>the 22 tables of the thesis, as printed</td></tr>
+        <tr><td><code>06_elevation_check.R</code></td><td>the terrain check</td></tr>
+        <tr><td><code>07_sensitivity_checks.R</code></td><td>the three site-level checks</td></tr>
+        <tr><td><code>08_appendix_figures.R</code></td><td>the maps and diagram of Appendix B</td></tr>
+      </table>
+      <p class="small" style="margin:0">Packages: dplyr, tidyr, readr, lubridate, jsonlite (data); sf, terra (geometry and rasters); lme4, lmerTest, performance, car (models); ggplot2, patchwork (figures). Versions in <code>results/sessionInfo.txt</code>.</p>
+      <pre style="margin-top:1rem"><code>Rscript analysis/requirements.R   # once
+Rscript analysis/run_all.R        # ~30 min</code></pre>
+    </div>
+  </div>
+</div></section>
+
+<section id="data"><div class="wrap">
+  <h2>Data and code</h2>
+  <div class="two">
+    <div class="prose">
+      <p>The repository <a href="https://github.com/justinkellum-ship-it/JustinKellumThesis">justinkellum-ship-it/JustinKellumThesis</a> holds the measurements, the processed tables, the code, the results and the walkthrough:</p>
+      <ul class="plain">
+        <li><b>data/raw</b> — <a href="https://github.com/justinkellum-ship-it/JustinKellumThesis/blob/main/data/raw/logger_readings.csv">logger_readings.csv</a>: 151,552 readings (district, logger, time stamp, °C); <a href="https://github.com/justinkellum-ship-it/JustinKellumThesis/blob/main/data/raw/sites.csv">sites.csv</a>: the 74 loggers with their positions and settings.</li>
+        <li><b>data/external</b> — ERA5 wind and cloud series, shoreline and base-map layers, DEM subsamples, tide-station water temperature. The large inputs (C-CAP tiles, FEMA footprints, GSHHG) are downloaded separately; the README says where.</li>
+        <li><b>data/processed</b> and <b>data/descriptors</b> — the night inventory, the 400 sensor-nights, and the eight descriptors of every site at three radii.</li>
+        <li><b>results</b> — <a href="https://github.com/justinkellum-ship-it/JustinKellumThesis/blob/main/results/thesis_results.json">thesis_results.json</a> (every statistic in the thesis), the CSV tables, the figures, and the tables as printed.</li>
+        <li><b>replication</b> — the Python implementation, its results and the comparison table.</li>
+      </ul>
+      <p>The code is released under the MIT License; the data, results and figures under Creative Commons Attribution 4.0. Third-party inputs keep their providers' terms: NOAA C-CAP, FEMA/ORNL USA Structures, GSHHG (Wessel &amp; Smith 1996), ERA5 (Hersbach et al. 2020) via Open-Meteo, USGS 3DEP and the USGS 10 m DEM via PacIOOS, NOAA CO-OPS, Natural Earth.</p>
+    </div>
+    <div class="box" id="cite">
+      <h3 style="margin-top:0">How to cite</h3>
+      <p class="small">Kellum, J. (2026). <i>Island Urban Climatology: Measuring and Modeling Nocturnal Heat in Leeward Coastal Oʻahu, Hawaiʻi</i>. M.A. thesis, University of Hawaiʻi at Mānoa. Data and code: https://github.com/justinkellum-ship-it/JustinKellumThesis</p>
+<pre><code>@mastersthesis{kellum2026island,
+  author = {Kellum, Justin},
+  title  = {Island Urban Climatology: Measuring and Modeling
+            Nocturnal Heat in Leeward Coastal O{\textquoteleft}ahu, Hawai{\textquoteleft}i},
+  school = {University of Hawai{\textquoteleft}i at M{\={a}}noa},
+  year   = {2026},
+  url    = {https://github.com/justinkellum-ship-it/JustinKellumThesis}
+}</code></pre>
+      <p class="small" style="margin:0">The thesis PDF on this page is the revised draft of September 2026; the final version will replace it after the committee's approval.</p>
+    </div>
+  </div>
+</div></section>
+
+<footer><div class="wrap">
+  <p>This work was possible only because dozens of residents of Honolulu and ʻEwa allowed sensors on their fences and sign posts, and because community volunteers helped deploy and recover the stations.</p>
+  <p>© 2026 Justin Kellum · Department of Geography and Environment, University of Hawaiʻi at Mānoa</p>
+</div></footer>
+
+<script>
+  (function () {
+    var root = document.documentElement, btn = document.getElementById('theme');
+    try { var saved = localStorage.getItem('theme'); if (saved) root.setAttribute('data-theme', saved); } catch (e) {}
+    btn.addEventListener('click', function () {
+      var dark = root.getAttribute('data-theme') === 'dark' ||
+                 (!root.getAttribute('data-theme') && window.matchMedia('(prefers-color-scheme: dark)').matches);
+      var next = dark ? 'light' : 'dark';
+      root.setAttribute('data-theme', next);
+      try { localStorage.setItem('theme', next); } catch (e) {}
+    });
+  })();
+</script>
+</body>
+</html>

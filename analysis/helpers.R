@@ -1,0 +1,106 @@
+# helpers.R ------------------------------------------------------------------
+# Shared paths, constants and small functions for the thesis analysis in R.
+#
+# Every script in this folder starts with `source("helpers.R")` (relative to
+# the R/ folder).  The project root is the folder that contains R/, data/ and
+# outputs/; it is found from the location of this file, or can be forced with
+# the environment variable THESIS_ROOT (used when the scripts are run from the
+# R Markdown walkthrough).
+#
+# Packages used here:
+#   dplyr, tidyr, tibble, readr, purrr, stringr  (tidyverse data handling)
+#   lubridate                                    (rounding of time stamps)
+#   jsonlite                                     (results file)
+# ---------------------------------------------------------------------------
+
+# the scripts contain UTF-8 text (ʻokina, degree signs, Greek letters); make sure
+# the session reads and draws them as such even under a plain "C" locale
+if (!isTRUE(l10n_info()[["UTF-8"]])) suppressWarnings(invisible(Sys.setlocale("LC_CTYPE", "C.UTF-8")))
+options(encoding = "UTF-8")
+
+suppressPackageStartupMessages({
+  library(dplyr)
+  library(tidyr)
+  library(tibble)
+  library(readr)
+  library(purrr)
+  library(stringr)
+  library(lubridate)
+  library(jsonlite)
+})
+
+# ---- project root -----------------------------------------------------------
+.find_root <- function() {
+  env <- Sys.getenv("THESIS_ROOT", unset = "")
+  if (nzchar(env)) return(normalizePath(env))
+  # script run with Rscript: --file=path/to/R/xx.R
+  f <- sub("^--file=", "", grep("^--file=", commandArgs(trailingOnly = FALSE), value = TRUE))
+  if (length(f) == 1) return(normalizePath(file.path(dirname(f), "..")))
+  # sourced interactively from the R/ folder or from the project root
+  if (file.exists("helpers.R")) return(normalizePath(".."))
+  if (dir.exists("analysis") && dir.exists("data")) return(normalizePath("."))
+  stop("Cannot find the project root: set THESIS_ROOT or run from analysis/ or the project folder")
+}
+ROOT <- .find_root()
+DATA <- file.path(ROOT, "data")
+RAW  <- file.path(DATA, "raw")          # the study's own measurements (logger readings, sites)
+EXT  <- file.path(DATA, "external")     # data from other providers (ERA5, shoreline, DEM, C-CAP, FEMA ...)
+PROC <- file.path(DATA, "processed")    # built by 00_prepare_inputs.R
+DER  <- file.path(DATA, "descriptors")  # built by 01_site_predictors.R and the checks
+OUT  <- file.path(ROOT, "results")
+TAB  <- file.path(OUT, "tables")
+FIG  <- file.path(OUT, "figures")
+PY   <- file.path(ROOT, "replication", "results")   # the independent Python implementation writes here
+for (d in c(PROC, DER, TAB, FIG)) dir.create(d, recursive = TRUE, showWarnings = FALSE)
+
+# ---- study constants --------------------------------------------------------
+NIGHT_START <- 18        # local hour at which a night begins (HST)
+NIGHT_END   <- 6         # local hour at which it ends; a diurnal date runs 06:00-06:00
+WIND_MAX_KMH  <- 10      # ERA5 10 m wind speed threshold for a "calm" step
+CLOUD_MAX_PCT <- 25      # ERA5 total cloud cover threshold for a "clear" step
+MIN_FRAC_STEPS <- 0.75   # share of the 24 night bins that must be calm AND clear
+MIN_SENSORS_PER_NIGHT <- 20      # network completeness for a usable reference
+MIN_STEPS_PER_SENSOR_NIGHT <- 18 # sensor-night completeness (of 24 bins)
+
+REGIONS <- c("Honolulu", "Ewa")
+RADII   <- c(50, 100, 200)
+PRED    <- c("imperv", "tree", "bldg", "water", "height", "svf_point", "aspect", "coast_km")
+LABEL   <- c(imperv = "Impervious surface fraction (%)", tree = "Tree canopy fraction (%)",
+             bldg = "Building footprint fraction (%)", water = "Water surface fraction (%)",
+             height = "Mean building height (m)", svf_point = "Sky view factor (building, at sensor)",
+             aspect = "Canyon aspect ratio (H/W)", coast_km = "Distance to coast (km)")
+# natural-unit conversion of z-scored slopes: (multiplier, label)
+UNIT <- list(imperv = list(10, "per +10 pp"), tree = list(10, "per +10 pp"), bldg = list(10, "per +10 pp"),
+             water = list(10, "per +10 pp"), height = list(1, "per +1 m"), svf_point = list(-0.1, "per -0.1"),
+             aspect = list(0.1, "per +0.1"), coast_km = list(1, "per +1 km"))
+
+# ---- small utilities --------------------------------------------------------
+# time stamps in the record are local standard time (HST, no daylight saving);
+# they are handled as UTC-labelled clock times so that no offset is ever applied
+read_stamps <- function(x) {
+  # readr may already have parsed the column; a midnight stamp printed through
+  # as.character() would lose its time part, so POSIXct input is only re-labelled
+  if (inherits(x, "POSIXct")) return(force_tz(with_tz(x, "UTC"), "UTC"))
+  ymd_hms(x, tz = "UTC", quiet = TRUE)
+}
+fmt_stamp   <- function(x) format(x, "%Y-%m-%d %H:%M:%S")
+
+write_table <- function(df, name, dir = TAB) {
+  readr::write_csv(df, file.path(dir, paste0(name, ".csv")), na = "")
+  invisible(df)
+}
+
+zscore_frame <- function(df, cols, ref = NULL) {
+  # z-scores with the mean and SD of `ref` (default: df itself), so that
+  # coefficients of subsets stay comparable with the pooled model
+  if (is.null(ref)) ref <- df
+  sds <- means <- setNames(numeric(length(cols)), cols)
+  for (cc in cols) {
+    mu <- mean(ref[[cc]]); s <- sd(ref[[cc]])
+    df[[paste0(cc, "_z")]] <- (df[[cc]] - mu) / s
+    sds[cc] <- s; means[cc] <- mu
+  }
+  list(df = df, sds = sds, means = means)
+}
+
+`%||%` <- function(a, b) if (is.null(a)) b else a
